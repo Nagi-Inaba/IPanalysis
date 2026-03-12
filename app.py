@@ -56,6 +56,18 @@ st.markdown("""<section class="hero"><h1>IP Analysis Studio</h1>
 <p>特許Excelをアップロード → 前処理 → 集計 → グラフ の3ステップで分析できます。</p></section>""", unsafe_allow_html=True)
 
 # ==================== Session State ====================
+# IPC粒度の選択肢
+IPC_LEVEL_OPTIONS = {
+    "サブクラス (例: H01M)": "subclass",
+    "メイングループ (例: H01M10)": "main_group",
+    "クラス (例: H01)": "class",
+}
+IPC_LEVEL_COL = {
+    "class": "筆頭IPCクラス",
+    "subclass": "筆頭IPCサブクラス",
+    "main_group": "筆頭IPCメイングループ",
+}
+
 for k, v in [
     ("step", 1),
     ("cleaned_df", None),
@@ -65,6 +77,7 @@ for k, v in [
     ("raw_df", None),
     ("column_mapping", {}),
     ("upload_bytes", None),
+    ("ipc_level", "subclass"),
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
@@ -82,8 +95,8 @@ def cached_application_trend(df: pd.DataFrame) -> pd.DataFrame:
 
 
 @st.cache_data
-def cached_ipc_growth(df: pd.DataFrame, base_year: int, yr_range: int) -> pd.DataFrame:
-    return analysis_ipc_growth(df, base_year, yr_range)
+def cached_ipc_growth(df: pd.DataFrame, base_year: int, yr_range: int, ipc_level: str = "subclass") -> pd.DataFrame:
+    return analysis_ipc_growth(df, base_year, yr_range, ipc_level=ipc_level)
 
 
 @st.cache_data
@@ -330,6 +343,15 @@ if step >= 2 and st.session_state["cleaned_df"] is not None:
         end_year = p3.number_input("終了年", 1980, 2030, 2023, key="ey")
         yr_range = st.slider("増減率レンジ（年）", 5, 20, 10, key="yr")
 
+        ipc_level_label = st.selectbox(
+            "IPC粒度（IPCを使うグラフ全体に適用）",
+            list(IPC_LEVEL_OPTIONS.keys()),
+            index=list(IPC_LEVEL_OPTIONS.values()).index(st.session_state["ipc_level"]),
+            key="ipc_level_select",
+            help="クラス(H01) < サブクラス(H01M) < メイングループ(H01M10) の順に詳細になります",
+        )
+        st.session_state["ipc_level"] = IPC_LEVEL_OPTIONS[ipc_level_label]
+
         st.markdown("**実行する集計を選択:**")
         c1, c2 = st.columns(2)
         checks = {
@@ -347,11 +369,12 @@ if step >= 2 and st.session_state["cleaned_df"] is not None:
 
         if st.button("集計を実行", type="primary", key="run_agg"):
             results = {}
+            _ipc_level = st.session_state["ipc_level"]
             with st.spinner("集計中..."):
                 if checks["出願件数推移"]:
                     results["出願件数推移"] = cached_application_trend(cleaned_df)
                 if checks["公報IPC増減率"]:
-                    results["公報IPC増減率"] = cached_ipc_growth(cleaned_df, base_year, yr_range)
+                    results["公報IPC増減率"] = cached_ipc_growth(cleaned_df, base_year, yr_range, _ipc_level)
                 if checks["公報IPC集計"]:
                     results["公報IPC集計"] = cached_ipc_summary(cleaned_df)
                 if checks["筆頭IPCメイングループ"]:
@@ -392,6 +415,8 @@ if step >= 3 and st.session_state.get("agg_results"):
     st.subheader("Step 3: グラフ作成")
     agg = st.session_state["agg_results"]
     cleaned_df = st.session_state["cleaned_df"]
+    _ipc_level = st.session_state.get("ipc_level", "subclass")
+    _ipc_col = IPC_LEVEL_COL.get(_ipc_level, "筆頭IPCサブクラス")
 
     trend_df = agg.get("出願件数推移")
     ipc_df = agg.get("公報IPC増減率")
@@ -740,8 +765,8 @@ if step >= 3 and st.session_state.get("agg_results"):
 
     # --------- 9. IPC分布 ツリーマップ ---------
     if cleaned_df is not None:
-        st.markdown("### IPC分布（ツリーマップ）")
-        tm_df = analysis_ipc_treemap(cleaned_df)
+        st.markdown(f"### IPC分布（ツリーマップ）")
+        tm_df = analysis_ipc_treemap(cleaned_df, ipc_col=_ipc_col)
         if not tm_df.empty:
             tm_n = st.slider("表示IPC数", 5, 50, 20, key="tm_n")
             tm_data = tm_df.head(tm_n)
@@ -759,7 +784,7 @@ if step >= 3 and st.session_state.get("agg_results"):
         hm1, hm2 = st.columns(2)
         hm_a = hm1.slider("上位出願人数", 5, 40, 20, key="hm_a")
         hm_i = hm2.slider("上位IPC数", 5, 30, 15, key="hm_i")
-        hm_df = analysis_applicant_ipc_heatmap(cleaned_df, top_applicants=hm_a, top_ipcs=hm_i)
+        hm_df = analysis_applicant_ipc_heatmap(cleaned_df, ipc_col=_ipc_col, top_applicants=hm_a, top_ipcs=hm_i)
         if not hm_df.empty:
             c = alt.Chart(hm_df).mark_rect().encode(
                 x=alt.X("IPC:N", title="IPC"),
@@ -802,7 +827,7 @@ if step >= 3 and st.session_state.get("agg_results"):
     if cleaned_df is not None:
         st.markdown("### IPC別 年次推移（ヒートマップ）")
         iy_n = st.slider("上位IPC数", 5, 40, 20, key="iy_n")
-        iy_df = analysis_ipc_year_heatmap(cleaned_df, top_n=iy_n)
+        iy_df = analysis_ipc_year_heatmap(cleaned_df, ipc_col=_ipc_col, top_n=iy_n)
         if not iy_df.empty:
             c = alt.Chart(iy_df).mark_rect().encode(
                 x=alt.X("出願年:O", title="出願年"),

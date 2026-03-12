@@ -259,6 +259,11 @@ def clean_patent_dataframe(
             if "＠" in v:
                 return v.split("＠")[0].strip()
             return v.strip()
+        def ipc_class(v):
+            if pd.isna(v) or not isinstance(v, str):
+                return ""
+            return v[:3].strip()
+        out["筆頭IPCクラス"] = out[ipc_col].apply(ipc_class)
         out["筆頭IPCメイングループ"] = out[ipc_col].apply(ipc_main)
         out["筆頭IPCサブクラス"] = out[ipc_col].apply(ipc_sub_class)
         out["筆頭IPCサブグループ"] = out[ipc_col].apply(ipc_sub_group)
@@ -327,9 +332,25 @@ def _split_ipc_codes(v: Any) -> List[str]:
     return [t.strip() for t in tokens if t and t.strip()]
 
 
+def _truncate_ipc(code: str, level: str) -> str:
+    """IPCコードを指定した粒度に変換する。
+    level: 'class'=クラス(H01), 'subclass'=サブクラス(H01M), 'main_group'=メイングループ(H01M10)
+    """
+    if not isinstance(code, str) or not code:
+        return code
+    if level == "class":
+        return code[:3].strip()
+    elif level == "subclass":
+        return code[:4].strip()
+    elif level == "main_group":
+        return code.split("/")[0].strip() if "/" in code else code.strip()
+    return code.strip()
+
+
 def analysis_ipc_growth(
     df: pd.DataFrame, target_year: int, year_range: int = 10,
     ipc_col: str = COL_IPC, year_col: str = COL_YEAR,
+    ipc_level: str = "subclass",
 ) -> pd.DataFrame:
     if ipc_col not in df.columns or year_col not in df.columns:
         return pd.DataFrame()
@@ -342,6 +363,9 @@ def analysis_ipc_growth(
     pdf = pdf[pdf[ipc_col].notna() & (pdf[ipc_col] != "")].rename(
         columns={ipc_col: "IPC", year_col: "year"}
     )
+    # 指定粒度に変換
+    pdf["IPC"] = pdf["IPC"].apply(lambda c: _truncate_ipc(c, ipc_level))
+    pdf = pdf[pdf["IPC"].notna() & (pdf["IPC"] != "")]
     if pdf.empty:
         return pd.DataFrame()
     b_mask = (pdf["year"] >= target_year - year_range) & (pdf["year"] < target_year)
