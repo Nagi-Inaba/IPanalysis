@@ -144,7 +144,26 @@ st.divider()
 if step >= 1:
     st.subheader("Step 1: データ前処理")
     sheet_data = st.text_input("データシート名", value="データ", key="sheet_data")
-    uploaded = st.file_uploader("Excelファイル (.xlsx)", type=["xlsx"], key="upload_main")
+
+    # サンプルデータ読み込み
+    SAMPLE_PATH = Path(__file__).parent / "excel_sample" / "非水電解質電池.xlsx"
+    sample_col, upload_col = st.columns([1, 2])
+    if sample_col.button("📂 サンプルデータで試す", help="非水電解質電池の特許データ（約2,000件）をサンプルとして読み込みます"):
+        sample_bytes = SAMPLE_PATH.read_bytes()
+        try:
+            from example_analysis import excel_to_dataframe as _etdf
+            sample_df = _etdf(sample_bytes, sheet_name="データ")
+            st.session_state["raw_df"] = sample_df
+            st.session_state["upload_bytes"] = sample_bytes
+            st.session_state["upload_name"] = "非水電解質電池.xlsx（サンプル）"
+            st.session_state["column_mapping"] = {}
+            st.session_state["step"] = 1
+            st.success("サンプルデータを読み込みました。このまま「前処理を実行」を押してください。")
+            st.rerun()
+        except Exception as e:
+            st.error(f"サンプルの読み込みに失敗しました: {e}")
+
+    uploaded = upload_col.file_uploader("または、Excelファイルをアップロード (.xlsx)", type=["xlsx"], key="upload_main")
 
     # アップロード済みファイルを DataFrame に読み込み & 列マッピング
     raw_df = None
@@ -262,7 +281,8 @@ if step >= 1:
             except Exception as e:
                 st.error(f"名寄せJSONの読み込みに失敗しました: {e}")
 
-    if st.button("前処理を実行", type="primary", key="run_clean", disabled=uploaded is None):
+    has_data = uploaded is not None or st.session_state.get("raw_df") is not None
+    if st.button("前処理を実行", type="primary", key="run_clean", disabled=not has_data):
         if uploaded is not None:
             try:
                 with st.spinner("前処理中..."):
