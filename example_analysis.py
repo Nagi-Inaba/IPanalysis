@@ -206,6 +206,7 @@ def clean_patent_dataframe(
     fi_col: str = "公報FI",
     life_death_col: str = "生死情報",
     enable_name_mapping: bool = True,
+    fterm_col: Optional[str] = None,
 ) -> pd.DataFrame:
     out = df.copy()
     mapping = name_mapping if name_mapping is not None else DEFAULT_NAME_MAPPING
@@ -259,6 +260,10 @@ def clean_patent_dataframe(
             if "＠" in v:
                 return v.split("＠")[0].strip()
             return v.strip()
+        def ipc_section(v):
+            if pd.isna(v) or not isinstance(v, str): return ""
+            return v[:1].strip()
+        out["筆頭IPCセクション"] = out[ipc_col].apply(ipc_section)
         def ipc_class(v):
             if pd.isna(v) or not isinstance(v, str):
                 return ""
@@ -288,6 +293,14 @@ def clean_patent_dataframe(
         out["筆頭FIメイングループ"] = out[fi_col].apply(fi_main)
         out["筆頭FIサブクラス"] = out[fi_col].apply(fi_sub_class)
         out["筆頭FIサブグループ"] = out[fi_col].apply(fi_sub_group)
+        def fi_section(v):
+            if pd.isna(v) or not isinstance(v, str): return ""
+            return v[:1].strip()
+        def fi_class(v):
+            if pd.isna(v) or not isinstance(v, str): return ""
+            return v[:3].strip()
+        out["筆頭FIセクション"] = out[fi_col].apply(fi_section)
+        out["筆頭FIクラス"] = out[fi_col].apply(fi_class)
 
     if life_death_col in out.columns:
         def life_death_updated(v):
@@ -304,6 +317,18 @@ def clean_patent_dataframe(
                 return "登録"
             return v
         out["生死情報更新"] = out[life_death_col].apply(life_death_updated)
+
+    if fterm_col and fterm_col in out.columns:
+        def fterm_theme(v):
+            codes = _split_fterm_codes(v)
+            if not codes: return ""
+            return _truncate_fterm(codes[0], "theme")
+        def fterm_viewpoint(v):
+            codes = _split_fterm_codes(v)
+            if not codes: return ""
+            return _truncate_fterm(codes[0], "viewpoint")
+        out["筆頭Fタームテーマコード"] = out[fterm_col].apply(fterm_theme)
+        out["筆頭Fターム観点"] = out[fterm_col].apply(fterm_viewpoint)
 
     return out
 
@@ -333,18 +358,60 @@ def _split_ipc_codes(v: Any) -> List[str]:
 
 
 def _truncate_ipc(code: str, level: str) -> str:
-    """IPCコードを指定した粒度に変換する。
-    level: 'class'=クラス(H01), 'subclass'=サブクラス(H01M), 'main_group'=メイングループ(H01M10)
+    """IPCおよびFIコードを指定した粒度に変換する。
+    FIの展開記号（＠区切りまたはスペース後）は自動除去。
+
+    level:
+      'section'    → セクション (例: H)
+      'class'      → クラス (例: H01)
+      'subclass'   → サブクラス (例: H01M)
+      'main_group' → メイングループ (例: H01M10, スラッシュ前)
+      'subgroup'   → サブグループ (例: H01M10/0525, 展開記号除く)
+      'full'       → フルコード (展開記号含む, FI用)
     """
     if not isinstance(code, str) or not code:
         return code
-    if level == "class":
-        return code[:3].strip()
+    # ＠またはスペースで展開記号を分離（FI固有）
+    base = re.split(r'[＠\s]+', code.strip())[0]
+    if level == "section":
+        return base[:1].strip()
+    elif level == "class":
+        return base[:3].strip()
     elif level == "subclass":
-        return code[:4].strip()
+        return base[:4].strip()
     elif level == "main_group":
-        return code.split("/")[0].strip() if "/" in code else code.strip()
+        return base.split("/")[0].strip() if "/" in base else base.strip()
+    elif level == "subgroup":
+        return base.strip()
+    elif level == "full":
+        return code.strip()
     return code.strip()
+
+
+def _truncate_fterm(code: str, level: str) -> str:
+    """Ftermを指定した粒度に変換する。
+
+    level:
+      'theme'      → テーマコード5文字 (例: 5H029)
+      'viewpoint'  → テーマ+観点7文字 (例: 5H029AJ)
+      'full'       → フルFターム9文字 (例: 5H029AJ12)
+    """
+    if not isinstance(code, str) or not code:
+        return code
+    normalized = re.sub(r'\s+', '', code.strip())
+    if level == "theme":
+        return normalized[:5]
+    elif level == "viewpoint":
+        return normalized[:7]
+    return normalized
+
+
+def _split_fterm_codes(v: Any) -> List[str]:
+    """Fterm列の値を個別コードに分割する。"""
+    if pd.isna(v):
+        return []
+    tokens = re.split(r'[,\u3001\uFF0C;\uFF1B\n\r\t]+', str(v))
+    return [t.strip() for t in tokens if t and t.strip()]
 
 
 def analysis_ipc_growth(
@@ -641,6 +708,59 @@ def analysis_ipc_treemap(df: pd.DataFrame, ipc_col: str = "筆頭IPCサブクラ
         return pd.DataFrame()
     cnt = df[ipc_col].dropna().value_counts()
     return pd.DataFrame({"IPC": cnt.index.tolist(), "出願件数": cnt.values.tolist()})
+
+
+def analysis_fterm_distribution(
+    df: pd.DataFrame,
+    fterm_col: str,
+    level: str = "theme",
+    top_n: int = 20,
+    year_col: str = COL_YEAR,
+) -> pd.DataFrame:
+    """Fターム件数分布（ツリーマップ・棒グラフ用）"""
+    if fterm_col not in df.columns:
+        return pd.DataFrame()
+    sub = df[fterm_col].dropna()
+    all_codes: List[str] = []
+    for v in sub:
+        for code in _split_fterm_codes(v):
+            truncated = _truncate_fterm(code, level)
+            if truncated:
+                all_codes.append(truncated)
+    if not all_codes:
+        return pd.DataFrame()
+    cnt = pd.Series(all_codes).value_counts().head(top_n)
+    return pd.DataFrame({"Fターム": cnt.index.tolist(), "出願件数": cnt.values.tolist()})
+
+
+def analysis_fterm_year_heatmap(
+    df: pd.DataFrame,
+    fterm_col: str,
+    level: str = "theme",
+    top_n: int = 20,
+    year_col: str = COL_YEAR,
+) -> pd.DataFrame:
+    """Fターム別年次推移ヒートマップ用"""
+    if fterm_col not in df.columns or year_col not in df.columns:
+        return pd.DataFrame()
+    sub = df[[fterm_col, year_col]].copy()
+    sub[year_col] = pd.to_numeric(sub[year_col], errors="coerce")
+    sub = sub.dropna(subset=[year_col])
+    sub[year_col] = sub[year_col].astype(int)
+    rows = []
+    for _, row in sub.iterrows():
+        yr = row[year_col]
+        for code in _split_fterm_codes(row[fterm_col]):
+            truncated = _truncate_fterm(code, level)
+            if truncated:
+                rows.append({"Fターム": truncated, "出願年": yr})
+    if not rows:
+        return pd.DataFrame()
+    pdf = pd.DataFrame(rows)
+    top_codes = pdf["Fターム"].value_counts().head(top_n).index.tolist()
+    pdf = pdf[pdf["Fターム"].isin(top_codes)]
+    pivot = pdf.groupby(["出願年", "Fターム"]).size().reset_index(name="出願件数")
+    return pivot
 
 
 # ===================== I/O =====================

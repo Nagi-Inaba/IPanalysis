@@ -10,6 +10,7 @@ import streamlit as st
 
 from chart_utils import chart_to_png_bytes
 from example_analysis import (
+    COL_IPC,
     DEFAULT_NAME_MAPPING,
     DEFAULT_NAME_MAPPING_ROWS,
     _editor_rows_to_dict,
@@ -32,6 +33,8 @@ from example_analysis import (
     analysis_applicant_share,
     analysis_co_applicant,
     analysis_ipc_treemap,
+    analysis_fterm_distribution,
+    analysis_fterm_year_heatmap,
     dataframe_to_excel_bytes,
 )
 
@@ -56,16 +59,45 @@ st.markdown("""<section class="hero"><h1>IP Analysis Studio</h1>
 <p>特許Excelをアップロード → 前処理 → 集計 → グラフ の3ステップで分析できます。</p></section>""", unsafe_allow_html=True)
 
 # ==================== Session State ====================
-# IPC粒度の選択肢
+# IPC粒度
 IPC_LEVEL_OPTIONS = {
+    "セクション (例: H)": "section",
+    "クラス (例: H01)": "class",
     "サブクラス (例: H01M)": "subclass",
     "メイングループ (例: H01M10)": "main_group",
-    "クラス (例: H01)": "class",
+    "サブグループ (例: H01M10/0525)": "subgroup",
 }
 IPC_LEVEL_COL = {
-    "class": "筆頭IPCクラス",
-    "subclass": "筆頭IPCサブクラス",
+    "section":    "筆頭IPCセクション",
+    "class":      "筆頭IPCクラス",
+    "subclass":   "筆頭IPCサブクラス",
     "main_group": "筆頭IPCメイングループ",
+    "subgroup":   "筆頭IPCサブグループ",
+}
+
+# FI粒度（IPC同様の5段階）
+FI_LEVEL_OPTIONS = {
+    "セクション (例: H)": "section",
+    "クラス (例: H01)": "class",
+    "サブクラス (例: H01M)": "subclass",
+    "メイングループ (例: H01M10)": "main_group",
+    "サブグループ (例: H01M10/0525)": "subgroup",
+    "フルFI (展開記号含む)": "full",
+}
+FI_LEVEL_COL = {
+    "section":    "筆頭FIセクション",
+    "class":      "筆頭FIクラス",
+    "subclass":   "筆頭FIサブクラス",
+    "main_group": "筆頭FIメイングループ",
+    "subgroup":   "筆頭FIサブグループ",
+    "full":       "筆頭FIサブグループ",
+}
+
+# Fターム粒度
+FTERM_LEVEL_OPTIONS = {
+    "テーマコード (例: 5H029)": "theme",
+    "テーマ＋観点 (例: 5H029AJ)": "viewpoint",
+    "フルFターム (例: 5H029AJ12)": "full",
 }
 
 for k, v in [
@@ -78,6 +110,10 @@ for k, v in [
     ("column_mapping", {}),
     ("upload_bytes", None),
     ("ipc_level", "subclass"),
+    ("classification", "IPC"),
+    ("fi_level", "subclass"),
+    ("fterm_level", "theme"),
+    ("fterm_col_name", ""),
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
@@ -95,8 +131,8 @@ def cached_application_trend(df: pd.DataFrame) -> pd.DataFrame:
 
 
 @st.cache_data
-def cached_ipc_growth(df: pd.DataFrame, base_year: int, yr_range: int, ipc_level: str = "subclass") -> pd.DataFrame:
-    return analysis_ipc_growth(df, base_year, yr_range, ipc_level=ipc_level)
+def cached_ipc_growth(df: pd.DataFrame, base_year: int, yr_range: int, ipc_level: str = "subclass", ipc_col_name: str = COL_IPC) -> pd.DataFrame:
+    return analysis_ipc_growth(df, base_year, yr_range, ipc_col=ipc_col_name, ipc_level=ipc_level)
 
 
 @st.cache_data
@@ -237,6 +273,14 @@ if step >= 1:
             key="map_fi",
         )
         col_map["fi"] = fi_col
+        fterm_col_options = ["（なし）"] + cols
+        fterm_col_val = c3.selectbox(
+            "Fターム列（任意）",
+            fterm_col_options,
+            index=fterm_col_options.index(col_map.get("fterm", "（なし）")) if col_map.get("fterm") in fterm_col_options else 0,
+            key="map_fterm",
+        )
+        col_map["fterm"] = fterm_col_val
         cit_col = c3.selectbox(
             "被引用回数列（任意）",
             ["（なし）"] + cols,
@@ -306,6 +350,7 @@ if step >= 1:
                     mapping_rows = st.session_state["name_mapping_rows"]
                     mapping = _editor_rows_to_dict(mapping_rows) if apply_name_mapping else {}
                     col_map = st.session_state.get("column_mapping", {})
+                    fterm_col_clean = None if col_map.get("fterm") in (None, "（なし）") else col_map.get("fterm")
                     cleaned = clean_patent_dataframe(
                         raw_df,
                         name_mapping=mapping,
@@ -315,7 +360,9 @@ if step >= 1:
                         fi_col=None if col_map.get("fi") in (None, "（なし）") else col_map.get("fi", "公報FI"),
                         life_death_col=None if col_map.get("life") in (None, "（なし）") else col_map.get("life", "生死情報"),
                         enable_name_mapping=apply_name_mapping,
+                        fterm_col=fterm_col_clean,
                     )
+                    st.session_state["fterm_col_name"] = fterm_col_clean or ""
                     st.session_state["cleaned_df"] = cleaned
                     st.session_state["step"] = 2
                     st.session_state["agg_results"] = {}
@@ -343,14 +390,46 @@ if step >= 2 and st.session_state["cleaned_df"] is not None:
         end_year = p3.number_input("終了年", 1980, 2030, 2023, key="ey")
         yr_range = st.slider("増減率レンジ（年）", 5, 20, 10, key="yr")
 
-        ipc_level_label = st.selectbox(
-            "IPC粒度（IPCを使うグラフ全体に適用）",
-            list(IPC_LEVEL_OPTIONS.keys()),
-            index=list(IPC_LEVEL_OPTIONS.values()).index(st.session_state["ipc_level"]),
-            key="ipc_level_select",
-            help="クラス(H01) < サブクラス(H01M) < メイングループ(H01M10) の順に詳細になります",
+        cls_col, ipc_col_sel, fi_col_sel = st.columns(3)
+        classification = cls_col.radio(
+            "分類軸",
+            ["IPC", "FI"],
+            index=0 if st.session_state["classification"] == "IPC" else 1,
+            key="classification_radio",
+            horizontal=True,
         )
-        st.session_state["ipc_level"] = IPC_LEVEL_OPTIONS[ipc_level_label]
+        st.session_state["classification"] = classification
+
+        if classification == "IPC":
+            ipc_level_label = ipc_col_sel.selectbox(
+                "IPC粒度",
+                list(IPC_LEVEL_OPTIONS.keys()),
+                index=list(IPC_LEVEL_OPTIONS.values()).index(st.session_state["ipc_level"]),
+                key="ipc_level_select",
+                help="セクション(H) < クラス(H01) < サブクラス(H01M) < メイングループ(H01M10) < サブグループ(H01M10/0525)",
+            )
+            st.session_state["ipc_level"] = IPC_LEVEL_OPTIONS[ipc_level_label]
+        else:
+            fi_level_label = fi_col_sel.selectbox(
+                "FI粒度",
+                list(FI_LEVEL_OPTIONS.keys()),
+                index=list(FI_LEVEL_OPTIONS.values()).index(st.session_state["fi_level"]) if st.session_state["fi_level"] in FI_LEVEL_OPTIONS.values() else 2,
+                key="fi_level_select",
+                help="セクション(H) < クラス(H01) < サブクラス(H01M) < メイングループ(H01M10) < サブグループ(H01M10/0525) < フルFI",
+            )
+            st.session_state["fi_level"] = FI_LEVEL_OPTIONS[fi_level_label]
+
+        # Fターム粒度（Fterm列がある場合のみ表示）
+        _fterm_col_name = st.session_state.get("fterm_col_name", "")
+        if _fterm_col_name and st.session_state.get("cleaned_df") is not None and _fterm_col_name in st.session_state["cleaned_df"].columns:
+            fterm_level_label = st.selectbox(
+                "Fターム粒度",
+                list(FTERM_LEVEL_OPTIONS.keys()),
+                index=list(FTERM_LEVEL_OPTIONS.values()).index(st.session_state["fterm_level"]),
+                key="fterm_level_select",
+                help="テーマコード(5H029) / テーマ+観点(5H029AJ) / フルFターム(5H029AJ12)",
+            )
+            st.session_state["fterm_level"] = FTERM_LEVEL_OPTIONS[fterm_level_label]
 
         st.markdown("**実行する集計を選択:**")
         c1, c2 = st.columns(2)
@@ -369,12 +448,18 @@ if step >= 2 and st.session_state["cleaned_df"] is not None:
 
         if st.button("集計を実行", type="primary", key="run_agg"):
             results = {}
+            _classification = st.session_state.get("classification", "IPC")
             _ipc_level = st.session_state["ipc_level"]
+            _fi_level = st.session_state.get("fi_level", "subclass")
+            _active_level = _ipc_level if _classification == "IPC" else _fi_level
+            col_map = st.session_state.get("column_mapping", {})
+            _fi_col_name = col_map.get("fi", "公報FI") if col_map.get("fi") not in (None, "（なし）") else "公報FI"
+            _active_ipc_col = COL_IPC if _classification == "IPC" else _fi_col_name
             with st.spinner("集計中..."):
                 if checks["出願件数推移"]:
                     results["出願件数推移"] = cached_application_trend(cleaned_df)
                 if checks["公報IPC増減率"]:
-                    results["公報IPC増減率"] = cached_ipc_growth(cleaned_df, base_year, yr_range, _ipc_level)
+                    results["公報IPC増減率"] = cached_ipc_growth(cleaned_df, base_year, yr_range, _active_level, _active_ipc_col)
                 if checks["公報IPC集計"]:
                     results["公報IPC集計"] = cached_ipc_summary(cleaned_df)
                 if checks["筆頭IPCメイングループ"]:
@@ -415,8 +500,15 @@ if step >= 3 and st.session_state.get("agg_results"):
     st.subheader("Step 3: グラフ作成")
     agg = st.session_state["agg_results"]
     cleaned_df = st.session_state["cleaned_df"]
+    _classification = st.session_state.get("classification", "IPC")
     _ipc_level = st.session_state.get("ipc_level", "subclass")
-    _ipc_col = IPC_LEVEL_COL.get(_ipc_level, "筆頭IPCサブクラス")
+    _fi_level = st.session_state.get("fi_level", "subclass")
+    if _classification == "IPC":
+        _ipc_col = IPC_LEVEL_COL.get(_ipc_level, "筆頭IPCサブクラス")
+    else:
+        _ipc_col = FI_LEVEL_COL.get(_fi_level, "筆頭FIサブクラス")
+    _fterm_col_name = st.session_state.get("fterm_col_name", "")
+    _fterm_level = st.session_state.get("fterm_level", "theme")
 
     trend_df = agg.get("出願件数推移")
     ipc_df = agg.get("公報IPC増減率")
@@ -835,6 +927,47 @@ if step >= 3 and st.session_state.get("agg_results"):
                 color=alt.Color("出願件数:Q", scale=alt.Scale(scheme="viridis"), title="件数"),
                 tooltip=["出願年", "IPC", "出願件数"],
             ).properties(height=max(300, iy_n * 22)).interactive()
+            st.altair_chart(c, use_container_width=True)
+
+    # --------- 14. Fターム分布（棒グラフ） ---------
+    if cleaned_df is not None and _fterm_col_name and _fterm_col_name in cleaned_df.columns:
+        st.markdown("### Fターム分布（棒グラフ）")
+        ft1, ft2 = st.columns(2)
+        ft_level_label = ft1.selectbox(
+            "Fターム粒度（分布グラフ）",
+            list(FTERM_LEVEL_OPTIONS.keys()),
+            index=list(FTERM_LEVEL_OPTIONS.values()).index(_fterm_level),
+            key="ft_dist_level",
+        )
+        ft_n = ft2.slider("表示件数", 5, 50, 20, key="ft_n")
+        ft_df = analysis_fterm_distribution(cleaned_df, _fterm_col_name, level=FTERM_LEVEL_OPTIONS[ft_level_label], top_n=ft_n)
+        if not ft_df.empty:
+            c = alt.Chart(ft_df).mark_bar().encode(
+                x=alt.X("出願件数:Q", title="出願件数"),
+                y=alt.Y("Fターム:N", sort="-x", title=""),
+                tooltip=["Fターム", "出願件数"],
+            ).properties(height=max(300, ft_n * 22)).interactive()
+            st.altair_chart(c, use_container_width=True)
+
+    # --------- 15. Fターム別年次推移（ヒートマップ） ---------
+    if cleaned_df is not None and _fterm_col_name and _fterm_col_name in cleaned_df.columns:
+        st.markdown("### Fターム別年次推移（ヒートマップ）")
+        fth1, fth2 = st.columns(2)
+        fth_level_label = fth1.selectbox(
+            "Fターム粒度（ヒートマップ）",
+            list(FTERM_LEVEL_OPTIONS.keys()),
+            index=list(FTERM_LEVEL_OPTIONS.values()).index(_fterm_level),
+            key="fth_level",
+        )
+        fth_n = fth2.slider("上位件数", 5, 30, 15, key="fth_n")
+        fth_df = analysis_fterm_year_heatmap(cleaned_df, _fterm_col_name, level=FTERM_LEVEL_OPTIONS[fth_level_label], top_n=fth_n)
+        if not fth_df.empty:
+            c = alt.Chart(fth_df).mark_rect().encode(
+                x=alt.X("出願年:O", title="出願年"),
+                y=alt.Y("Fターム:N", title="Fターム"),
+                color=alt.Color("出願件数:Q", scale=alt.Scale(scheme="purples"), title="件数"),
+                tooltip=["出願年", "Fターム", "出願件数"],
+            ).properties(height=max(300, fth_n * 22)).interactive()
             st.altair_chart(c, use_container_width=True)
 
     # ステップ戻し
