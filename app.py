@@ -283,11 +283,11 @@ if step >= 1:
 
     has_data = uploaded is not None or st.session_state.get("raw_df") is not None
     if st.button("前処理を実行", type="primary", key="run_clean", disabled=not has_data):
-        if uploaded is not None:
+        if has_data:
             try:
                 with st.spinner("前処理中..."):
                     raw_df = st.session_state.get("raw_df")
-                    if raw_df is None:
+                    if raw_df is None and uploaded is not None:
                         raw_df = excel_to_dataframe(uploaded.getvalue(), sheet_name=sheet_data)
                         st.session_state["raw_df"] = raw_df
                     mapping_rows = st.session_state["name_mapping_rows"]
