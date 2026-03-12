@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from io import BytesIO
 from itertools import combinations
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional
 
 import pandas as pd
 
@@ -37,7 +37,7 @@ SUFFIX_CHARS = [
     "、", "，", "▼", "▲",
 ]
 
-_BUILTIN_NAME_MAPPING: Dict[str, str] = {
+_BUILTIN_NAME_MAPPING: dict[str, str] = {
     "－": "ー", "—": "ー",
     "三菱重工エンジニアリング": "三菱重工業", "三菱パワー": "三菱重工業", "三菱日立パワーシステムズ": "三菱重工業", "三菱造船": "三菱重工業", "三菱重工パワーインダストリー": "三菱重工業",
     "三菱重工エンジンアンドターボチャージャ": "三菱重工業", "三菱重工マリンマシナリ": "三菱重工業", "三菱エフビーアールシステムズ": "三菱重工業", "三菱原子燃料": "三菱重工業", "三菱重工サーマル": "三菱重工業",
@@ -148,7 +148,7 @@ _BUILTIN_NAME_MAPPING: Dict[str, str] = {
 }
 
 
-def _load_name_mapping_json() -> Dict[str, str]:
+def _load_name_mapping_json() -> dict[str, str]:
     """name_mapping.json を読み込む。失敗時はビルトイン辞書を返す。"""
     json_path = Path(__file__).parent / "name_mapping.json"
     try:
@@ -158,15 +158,15 @@ def _load_name_mapping_json() -> Dict[str, str]:
         return _BUILTIN_NAME_MAPPING
 
 
-DEFAULT_NAME_MAPPING: Dict[str, str] = _load_name_mapping_json()
+DEFAULT_NAME_MAPPING: dict[str, str] = _load_name_mapping_json()
 
 
-def _mapping_to_editor_rows(d: Dict[str, str]) -> List[Dict[str, str]]:
+def _mapping_to_editor_rows(d: dict[str, str]) -> list[dict[str, str]]:
     return [{"元の名前": k, "名寄せ後": v} for k, v in d.items() if k != v]
 
 
-def _editor_rows_to_dict(rows: List[Dict[str, str]]) -> Dict[str, str]:
-    d: Dict[str, str] = {}
+def _editor_rows_to_dict(rows: list[dict[str, str]]) -> dict[str, str]:
+    d: dict[str, str] = {}
     for r in rows:
         orig = (r.get("元の名前") or "").strip()
         new = (r.get("名寄せ後") or "").strip()
@@ -187,7 +187,7 @@ def _apply_suffix_removal(s: str) -> str:
     return out.strip()
 
 
-def _apply_name_mapping(s: str, mapping: Dict[str, str]) -> str:
+def _apply_name_mapping(s: str, mapping: dict[str, str]) -> str:
     if not isinstance(s, str) or not s:
         return s
     out = s
@@ -199,7 +199,7 @@ def _apply_name_mapping(s: str, mapping: Dict[str, str]) -> str:
 
 def clean_patent_dataframe(
     df: pd.DataFrame,
-    name_mapping: Optional[Dict[str, str]] = None,
+    name_mapping: Optional[dict[str, str]] = None,
     applicant_col: str = COL_APPLICANT,
     application_date_col: str = COL_DATE,
     ipc_col: str = COL_IPC,
@@ -344,13 +344,13 @@ def analysis_application_trend(df: pd.DataFrame, year_col: str = COL_YEAR) -> pd
     return pd.DataFrame({"出願年": cnt.index, "出願件数": cnt.values})
 
 
-def _split_applicants(s: Any) -> List[str]:
+def _split_applicants(s: Any) -> list[str]:
     if pd.isna(s):
         return []
     return [x.strip() for x in str(s).replace("，", ",").split(",") if x.strip()]
 
 
-def _split_ipc_codes(v: Any) -> List[str]:
+def _split_ipc_codes(v: Any) -> list[str]:
     if pd.isna(v):
         return []
     tokens = re.split(r"[,\u3001\uFF0C;\uFF1B\n\r\t]+", str(v))
@@ -406,7 +406,7 @@ def _truncate_fterm(code: str, level: str) -> str:
     return normalized
 
 
-def _split_fterm_codes(v: Any) -> List[str]:
+def _split_fterm_codes(v: Any) -> list[str]:
     """Fterm列の値を個別コードに分割する。"""
     if pd.isna(v):
         return []
@@ -721,7 +721,7 @@ def analysis_fterm_distribution(
     if fterm_col not in df.columns:
         return pd.DataFrame()
     sub = df[fterm_col].dropna()
-    all_codes: List[str] = []
+    all_codes: list[str] = []
     for v in sub:
         for code in _split_fterm_codes(v):
             truncated = _truncate_fterm(code, level)
@@ -769,7 +769,7 @@ def excel_to_dataframe(file_bytes: bytes, sheet_name: str = "データ") -> pd.D
     return pd.read_excel(BytesIO(file_bytes), sheet_name=sheet_name)
 
 
-def dataframe_to_excel_bytes(sheets: Dict[str, pd.DataFrame], order: Optional[List[str]] = None) -> bytes:
+def dataframe_to_excel_bytes(sheets: dict[str, pd.DataFrame], order: Optional[list[str]] = None) -> bytes:
     buf = BytesIO()
     with pd.ExcelWriter(buf, engine="openpyxl") as w:
         for name, frame in (sheets.items() if order is None else [(k, sheets[k]) for k in order if k in sheets]):
