@@ -1,7 +1,7 @@
 openpyxl>=3.1.0,<4.0.0
 pandas>=2.0.0,<3.0.0
 streamlit>=1.36.0,<2.0.0
-altair>=5.0.0,<6.0.0
+altair>=5.0.0,<5.4.0
 # altair_saver は vl-convert-python を使う場合のみ有効化してください。
 # Streamlit Community Cloud では省略可能（PNG エクスポート機能が無効になりますが、アプリは動作します）。
 # altair-saver>=0.5.0,<0.7.0
