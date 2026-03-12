@@ -500,18 +500,53 @@ if step >= 3 and st.session_state.get("agg_results"):
     st.subheader("Step 3: グラフ作成")
     agg = st.session_state["agg_results"]
     cleaned_df = st.session_state["cleaned_df"]
-    _classification = st.session_state.get("classification", "IPC")
-    _ipc_level = st.session_state.get("ipc_level", "subclass")
-    _fi_level = st.session_state.get("fi_level", "subclass")
+
+    # ── IPC/FI粒度セレクタ（Step3で直接変更可能） ──
+    st.divider()
+    _s3c1, _s3c2, _s3c3 = st.columns([1, 2, 2])
+    _classification = _s3c1.radio(
+        "分類軸",
+        ["IPC", "FI"],
+        index=0 if st.session_state.get("classification", "IPC") == "IPC" else 1,
+        key="classification_s3",
+        horizontal=True,
+    )
+    st.session_state["classification"] = _classification
     if _classification == "IPC":
+        _ipc_level_label_s3 = _s3c2.selectbox(
+            "IPC粒度",
+            list(IPC_LEVEL_OPTIONS.keys()),
+            index=list(IPC_LEVEL_OPTIONS.values()).index(st.session_state.get("ipc_level", "subclass")),
+            key="ipc_level_s3",
+            help="セクション(H) < クラス(H01) < サブクラス(H01M) < メイングループ(H01M10) < サブグループ(H01M10/0525)",
+        )
+        _ipc_level = IPC_LEVEL_OPTIONS[_ipc_level_label_s3]
+        st.session_state["ipc_level"] = _ipc_level
         _ipc_col = IPC_LEVEL_COL.get(_ipc_level, "筆頭IPCサブクラス")
+        _ipc_level_name = _ipc_level_label_s3.split(" ")[0]
     else:
+        _fi_level_label_s3 = _s3c2.selectbox(
+            "FI粒度",
+            list(FI_LEVEL_OPTIONS.keys()),
+            index=list(FI_LEVEL_OPTIONS.values()).index(st.session_state.get("fi_level", "subclass")) if st.session_state.get("fi_level", "subclass") in FI_LEVEL_OPTIONS.values() else 2,
+            key="fi_level_s3",
+        )
+        _fi_level = FI_LEVEL_OPTIONS[_fi_level_label_s3]
+        st.session_state["fi_level"] = _fi_level
         _ipc_col = FI_LEVEL_COL.get(_fi_level, "筆頭FIサブクラス")
+        _ipc_level_name = _fi_level_label_s3.split(" ")[0]
+
     _fterm_col_name = st.session_state.get("fterm_col_name", "")
     _fterm_level = st.session_state.get("fterm_level", "theme")
 
     trend_df = agg.get("出願件数推移")
-    ipc_df = agg.get("公報IPC増減率")
+    # IPC増減率はStep3で選択した粒度で毎回再計算
+    _base_year = st.session_state.get("by", 2015)
+    _yr_range = st.session_state.get("yr", 10)
+    _active_ipc_src = COL_IPC if _classification == "IPC" else (
+        st.session_state.get("column_mapping", {}).get("fi") or "公報FI"
+    )
+    ipc_df = analysis_ipc_growth(cleaned_df, _base_year, _yr_range, ipc_col=_active_ipc_src, ipc_level=(_ipc_level if _classification == "IPC" else _fi_level))
     app_count_df = agg.get("総出願人カウント")
     app_growth_df = agg.get("出願人増減率")
     entry_exit_df = agg.get("参入撤退チャート")
@@ -674,7 +709,7 @@ if step >= 3 and st.session_state.get("agg_results"):
 
     # --------- 3. IPC増減率 バブルチャート ---------
     if ipc_df is not None and not ipc_df.empty:
-        st.markdown("### IPC増減率（バブルチャート）")
+        st.markdown(f"### {_classification} 増減率（バブルチャート）— 粒度: {_ipc_level_name}")
         bc1, bc2 = st.columns(2)
         ipc_min = bc1.slider("最低出願件数（IPC）", 1, int(ipc_df["total_count"].max()), 10, key="ipc_bmin")
         ipc_sel = bc2.multiselect("IPC を選択（空＝全表示）", ipc_df["IPC"].tolist(), key="ipc_sel")
@@ -857,14 +892,14 @@ if step >= 3 and st.session_state.get("agg_results"):
 
     # --------- 9. IPC分布 ツリーマップ ---------
     if cleaned_df is not None:
-        st.markdown(f"### IPC分布（ツリーマップ）")
+        st.markdown(f"### {_classification} 分布（ツリーマップ）— 粒度: {_ipc_level_name}")
         tm_df = analysis_ipc_treemap(cleaned_df, ipc_col=_ipc_col)
         if not tm_df.empty:
             tm_n = st.slider("表示IPC数", 5, 50, 20, key="tm_n")
             tm_data = tm_df.head(tm_n)
             c = alt.Chart(tm_data).mark_bar().encode(
                 x=alt.X("出願件数:Q", title="出願件数"),
-                y=alt.Y("IPC:N", sort="-x", title="IPCサブクラス"),
+                y=alt.Y("IPC:N", sort="-x", title=_ipc_level_name),
                 color=alt.Color("出願件数:Q", scale=alt.Scale(scheme="greens"), legend=None),
                 tooltip=["IPC", "出願件数"],
             ).properties(height=max(300, tm_n * 22)).interactive()
@@ -872,7 +907,7 @@ if step >= 3 and st.session_state.get("agg_results"):
 
     # --------- 10. 出願人 x IPC ヒートマップ ---------
     if cleaned_df is not None:
-        st.markdown("### 出願人 × IPC ヒートマップ")
+        st.markdown(f"### 出願人 × {_classification} ヒートマップ — 粒度: {_ipc_level_name}")
         hm1, hm2 = st.columns(2)
         hm_a = hm1.slider("上位出願人数", 5, 40, 20, key="hm_a")
         hm_i = hm2.slider("上位IPC数", 5, 30, 15, key="hm_i")
@@ -917,7 +952,7 @@ if step >= 3 and st.session_state.get("agg_results"):
 
     # --------- 13. IPC別 年次推移 ヒートマップ ---------
     if cleaned_df is not None:
-        st.markdown("### IPC別 年次推移（ヒートマップ）")
+        st.markdown(f"### {_classification} 別 年次推移（ヒートマップ）— 粒度: {_ipc_level_name}")
         iy_n = st.slider("上位IPC数", 5, 40, 20, key="iy_n")
         iy_df = analysis_ipc_year_heatmap(cleaned_df, ipc_col=_ipc_col, top_n=iy_n)
         if not iy_df.empty:
