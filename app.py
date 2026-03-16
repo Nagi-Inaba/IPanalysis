@@ -13,10 +13,13 @@ from example_analysis import (
     COL_IPC,
     DEFAULT_NAME_MAPPING,
     DEFAULT_NAME_MAPPING_ROWS,
+    QUESTEL_COL_DEFAULTS,
     _editor_rows_to_dict,
     _mapping_to_editor_rows,
     clean_patent_dataframe,
     excel_to_dataframe,
+    load_csv_to_dataframe,
+    detect_data_format,
     analysis_application_trend,
     analysis_ipc_growth,
     analysis_ipc_summary,
@@ -114,6 +117,7 @@ for k, v in [
     ("fi_level", "subclass"),
     ("fterm_level", "theme"),
     ("fterm_col_name", ""),
+    ("data_format", "unknown"),
 ]:
     if k not in st.session_state:
         st.session_state[k] = v
@@ -212,7 +216,11 @@ if step >= 1:
         except Exception as e:
             st.error(f"サンプルの読み込みに失敗しました: {e}")
 
-    uploaded = upload_col.file_uploader("または、Excelファイルをアップロード (.xlsx)", type=["xlsx"], key="upload_main")
+    uploaded = upload_col.file_uploader(
+        "または、ファイルをアップロード (.xlsx / .csv)",
+        type=["xlsx", "csv"],
+        key="upload_main",
+    )
 
     # アップロード済みファイルを DataFrame に読み込み & 列マッピング
     raw_df = None
@@ -220,19 +228,43 @@ if step >= 1:
         file_bytes = uploaded.getvalue()
         if st.session_state["upload_bytes"] != file_bytes or st.session_state["raw_df"] is None:
             try:
-                raw_df = excel_to_dataframe(file_bytes, sheet_name=sheet_data)
+                if uploaded.name.lower().endswith(".csv"):
+                    raw_df = load_csv_to_dataframe(file_bytes)
+                else:
+                    raw_df = excel_to_dataframe(file_bytes, sheet_name=sheet_data)
+                fmt = detect_data_format(raw_df)
                 st.session_state["raw_df"] = raw_df
                 st.session_state["upload_bytes"] = file_bytes
                 st.session_state["upload_name"] = uploaded.name
-                st.session_state["column_mapping"] = {}
+                st.session_state["data_format"] = fmt
+                # Questel形式のとき列マッピングを自動設定
+                if fmt == "questel":
+                    cols_in_df = list(raw_df.columns)
+                    auto_map = {}
+                    for key, col_name in QUESTEL_COL_DEFAULTS.items():
+                        auto_map[key] = col_name if col_name in cols_in_df else "（なし）"
+                    st.session_state["column_mapping"] = auto_map
+                else:
+                    st.session_state["column_mapping"] = {}
             except ValueError as e:
-                st.error(f"シート名「{sheet_data}」が見つかりません。Excelのシート名を確認してください。詳細: {e}")
+                st.error(f"ファイルの読み込みに失敗しました: {e}")
                 raw_df = None
             except Exception as e:
-                st.error(f"Excel の読み込みに失敗しました: {e}")
+                st.error(f"ファイルの読み込みに失敗しました: {e}")
                 raw_df = None
         else:
             raw_df = st.session_state["raw_df"]
+
+    # データ形式バッジ
+    if raw_df is not None:
+        fmt = st.session_state.get("data_format", "unknown")
+        _fmt_labels = {"questel": "🌐 Questel Orbit", "jplatpat": "🗾 J-PlatPat", "unknown": "❓ 不明"}
+        _fmt_colors = {"questel": "#275f56", "jplatpat": "#1a4a8c", "unknown": "#888"}
+        st.markdown(
+            f'<span style="background:{_fmt_colors[fmt]};color:#fff;padding:2px 10px;border-radius:8px;font-size:.82rem;font-weight:700;">'
+            f'{_fmt_labels[fmt]}</span> として認識しました。',
+            unsafe_allow_html=True,
+        )
 
     if raw_df is not None:
         st.markdown("#### 列マッピング")
@@ -256,28 +288,43 @@ if step >= 1:
             return sel
 
         c1, c2, c3 = st.columns(3)
-        applicant_col = _col_select("出願人列", "applicant", ["更新出願人・権利者氏名", "出願人", "出願人名"])
-        date_col = _col_select("出願日列", "date", ["出願日", "公開日"])
-        num_col = _col_select("出願番号列", "number", ["出願番号"])
+        applicant_col = _col_select("出願人列", "applicant", [
+            "更新出願人・権利者氏名", "出願人", "出願人名",
+            "Current standardized assignees - inventors removed", "Current assignees",
+        ])
+        date_col = _col_select("出願日列", "date", [
+            "出願日", "公開日", "Earliest application date",
+        ])
+        num_col = _col_select("出願番号列", "number", [
+            "出願番号", "Publication numbers", "Standardized publication numbers",
+        ])
         ipc_col = c2.selectbox(
             "IPC列",
             cols,
-            index=cols.index(col_map.get("ipc", _guess(["公報IPC", "IPC"]))) if cols else 0,
+            index=cols.index(col_map.get("ipc", _guess([
+                "公報IPC", "IPC", "IPC - International classification",
+            ]))) if cols else 0,
             key="map_ipc",
         )
         col_map["ipc"] = ipc_col
+        _fi_default = col_map.get("fi", "（なし）")
+        if _fi_default not in (["（なし）"] + cols):
+            _fi_default = "（なし）"
         fi_col = c2.selectbox(
             "FI列（任意）",
             ["（なし）"] + cols,
-            index=(["（なし）"] + cols).index(col_map.get("fi", "（なし）")),
+            index=(["（なし）"] + cols).index(_fi_default),
             key="map_fi",
         )
         col_map["fi"] = fi_col
         fterm_col_options = ["（なし）"] + cols
+        _fterm_default = col_map.get("fterm", "（なし）")
+        if _fterm_default not in fterm_col_options:
+            _fterm_default = "（なし）"
         fterm_col_val = c3.selectbox(
             "Fターム列（任意）",
             fterm_col_options,
-            index=fterm_col_options.index(col_map.get("fterm", "（なし）")) if col_map.get("fterm") in fterm_col_options else 0,
+            index=fterm_col_options.index(_fterm_default),
             key="map_fterm",
         )
         col_map["fterm"] = fterm_col_val

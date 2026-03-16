@@ -221,7 +221,7 @@ def clean_patent_dataframe(
         def head_applicant(v):
             if pd.isna(v) or v == "":
                 return ""
-            s = str(v).replace("，", ",")
+            s = str(v).replace("，", ",").replace("|", ",")
             parts = [p.strip() for p in s.split(",") if p.strip()]
             return parts[0] if parts else str(v)
         out[COL_LEAD_APPLICANT] = out[applicant_col].apply(head_applicant)
@@ -347,13 +347,13 @@ def analysis_application_trend(df: pd.DataFrame, year_col: str = COL_YEAR) -> pd
 def _split_applicants(s: Any) -> list[str]:
     if pd.isna(s):
         return []
-    return [x.strip() for x in str(s).replace("，", ",").split(",") if x.strip()]
+    return [x.strip() for x in str(s).replace("，", ",").replace("|", ",").split(",") if x.strip()]
 
 
 def _split_ipc_codes(v: Any) -> list[str]:
     if pd.isna(v):
         return []
-    tokens = re.split(r"[,\u3001\uFF0C;\uFF1B\n\r\t]+", str(v))
+    tokens = re.split(r"[|,\u3001\uFF0C;\uFF1B\n\r\t]+", str(v))
     return [t.strip() for t in tokens if t and t.strip()]
 
 
@@ -410,7 +410,7 @@ def _split_fterm_codes(v: Any) -> list[str]:
     """Fterm列の値を個別コードに分割する。"""
     if pd.isna(v):
         return []
-    tokens = re.split(r'[,\u3001\uFF0C;\uFF1B\n\r\t]+', str(v))
+    tokens = re.split(r'[|,\u3001\uFF0C;\uFF1B\n\r\t]+', str(v))
     return [t.strip() for t in tokens if t and t.strip()]
 
 
@@ -767,6 +767,48 @@ def analysis_fterm_year_heatmap(
 
 def excel_to_dataframe(file_bytes: bytes, sheet_name: str = "データ") -> pd.DataFrame:
     return pd.read_excel(BytesIO(file_bytes), sheet_name=sheet_name)
+
+
+def load_csv_to_dataframe(file_bytes: bytes) -> pd.DataFrame:
+    """CSVをDataFrameに変換。UTF-16/UTF-8-BOM/UTF-8/CP932を自動検出。"""
+    for enc in ["utf-16", "utf-8-sig", "utf-8", "cp932", "shift-jis"]:
+        try:
+            df = pd.read_csv(BytesIO(file_bytes), encoding=enc)
+            if len(df.columns) > 1:
+                return df
+        except Exception:
+            continue
+    raise ValueError("CSV の文字コードを自動判定できませんでした。UTF-8 または UTF-16 形式を使用してください。")
+
+
+_QUESTEL_SIGNATURE_COLS = frozenset([
+    "Current assignees",
+    "IPC - International classification",
+    "Earliest application date",
+])
+_JPLATPAT_SIGNATURE_COLS = frozenset([COL_APPLICANT, COL_DATE, COL_IPC])
+
+# Questelフォーマットの列名→app.pyのcolumn_mappingキー のデフォルト対応表
+QUESTEL_COL_DEFAULTS: dict[str, str] = {
+    "applicant": "Current standardized assignees - inventors removed",
+    "date": "Earliest application date",
+    "number": "Publication numbers",
+    "ipc": "IPC - International classification",
+    "fi": "FI (File Index) ",
+    "fterm": "F-term (File Forming Term) ",
+    "citation": "（なし）",
+    "life": "（なし）",
+}
+
+
+def detect_data_format(df: pd.DataFrame) -> str:
+    """データ形式を自動検出。'questel', 'jplatpat', 'unknown' を返す。"""
+    cols = set(df.columns)
+    if _QUESTEL_SIGNATURE_COLS.issubset(cols):
+        return "questel"
+    if any(c in cols for c in _JPLATPAT_SIGNATURE_COLS):
+        return "jplatpat"
+    return "unknown"
 
 
 def dataframe_to_excel_bytes(sheets: dict[str, pd.DataFrame], order: Optional[list[str]] = None) -> bytes:
