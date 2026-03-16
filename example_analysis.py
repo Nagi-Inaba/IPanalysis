@@ -255,6 +255,9 @@ def clean_patent_dataframe(
         def ipc_sub_group(v):
             if pd.isna(v) or not isinstance(v, str):
                 return ""
+            # Questel は | 区切り — 先頭コードのみ使用
+            if "|" in v:
+                v = v.split("|")[0].strip()
             if "," in v:
                 return v.split(",")[0].strip()
             if "＠" in v:

@@ -590,10 +590,16 @@ if step >= 3 and st.session_state.get("agg_results"):
     # IPC増減率はStep3で選択した粒度で毎回再計算
     _base_year = st.session_state.get("by", 2015)
     _yr_range = st.session_state.get("yr", 10)
-    _active_ipc_src = COL_IPC if _classification == "IPC" else (
-        st.session_state.get("column_mapping", {}).get("fi") or "公報FI"
-    )
-    ipc_df = analysis_ipc_growth(cleaned_df, _base_year, _yr_range, ipc_col=_active_ipc_src, ipc_level=(_ipc_level if _classification == "IPC" else _fi_level))
+    _col_map_s3 = st.session_state.get("column_mapping", {})
+    if _classification == "IPC":
+        _active_ipc_src = _col_map_s3.get("ipc") or COL_IPC
+    else:
+        _active_ipc_src = _col_map_s3.get("fi") if _col_map_s3.get("fi") not in (None, "（なし）") else None
+    ipc_df = analysis_ipc_growth(
+        cleaned_df, _base_year, _yr_range,
+        ipc_col=_active_ipc_src or COL_IPC,
+        ipc_level=(_ipc_level if _classification == "IPC" else _fi_level),
+    ) if _active_ipc_src else pd.DataFrame()
     app_count_df = agg.get("総出願人カウント")
     app_growth_df = agg.get("出願人増減率")
     entry_exit_df = agg.get("参入撤退チャート")
