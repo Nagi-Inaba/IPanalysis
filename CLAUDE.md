@@ -2,6 +2,19 @@
 
 特許データ（xlsx/csv）から IPC 分類の経年増減率・出願人動向・技術マップを分析する Streamlit アプリ。
 
+## 所属組織: PatentScope（子会社）
+
+このプロジェクトは PatentScope 子会社が管轄する。作業開始時に以下を読み込むこと:
+
+- **子会社本部**: `C:/Users/Nagi/.company/subsidiaries/patentscope/CLAUDE.md`
+- **スプリント**: `C:/Users/Nagi/.company/subsidiaries/patentscope/todos/current-sprint.md`
+- **統合計画**: `C:/Users/Nagi/.company/subsidiaries/patentscope/engineering/2026-03-17-unified-platform-plan.md`
+- **調査手法**: `C:/Users/Nagi/.company/subsidiaries/patentscope/research/2026-03-17-research-methodology.md`
+- **親会社PM**: `C:/Users/Nagi/.company/pm/projects/2026-03-12-ipanalysis.md`
+
+チーム: 特許アナリスト / データエンジニア / 可視化スペシャリスト / UI・UXデザイナー
+姉妹プロジェクト: 特許分析apollo (`C:/Users/Nagi/OneDrive/ドキュメント/特許分析apollo/`)
+
 ## 公開 URL
 
 https://ipanalysis-webapp.streamlit.app/
@@ -27,7 +40,10 @@ https://ipanalysis-webapp.streamlit.app/
 
 | パス | 説明 |
 |-----|------|
-| `app.py` | Streamlit Web アプリ（1069行 -- リファクタリング対象） |
+| `app.py` | Streamlit Web アプリ（455行 -- Step 1/2 + メインフロー） |
+| `charts.py` | Step 3 グラフ描画（555行 -- 15種のチャート + 設定UI） |
+| `cached_agg.py` | Streamlit キャッシュ付き集計ラッパー（70行） |
+| `constants.py` | IPC/FI/Fターム粒度定数（44行） |
 | `example_analysis.py` | 分析ロジック（17種の集計関数 + データクリーニング + 名寄せ辞書） |
 | `patent_analysis.py` | IPC増減率計算（CLI/Web 両対応、openpyxl ベース） |
 | `chart_utils.py` | グラフ PNG エクスポート（altair_saver 依存 -- 要更新） |
@@ -62,6 +78,6 @@ Fターム分布、Fターム年次ヒートマップ
 - `excel_sample/` に実データを含めないこと（機密・個人情報リスク）
 - `.streamlit/secrets.toml` はリポジトリに含めないこと
 - `.gitignore` で `*.csv` を除外済み（実データの誤コミット防止）
-- app.py が 1069 行で 800 行上限を超過 -- サイドバー/CSS/セクション別にモジュール分割が必要
+- app.py を 1069→455 行にリファクタリング済み（charts.py, cached_agg.py, constants.py に分割）
 - chart_utils.py の altair_saver は非推奨 -- vl-convert-python への移行が必要
 - example_analysis.py が 822 行で 800 行上限に近い -- 名寄せ辞書の外部化で軽量化可能
