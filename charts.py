@@ -155,7 +155,11 @@ def render_step3(agg: Dict[str, pd.DataFrame], cleaned_df: pd.DataFrame) -> None
     if cleaned_df is not None:
         _col_map_adv = st.session_state.get("column_mapping", {})
         _adv_ipc_col = _ipc_col
-        render_advanced_charts(cleaned_df, _classification, _adv_ipc_col)
+        if _classification == "IPC":
+            _raw_ipc_col = _col_map_adv.get("ipc") or COL_IPC
+        else:
+            _raw_ipc_col = _col_map_adv.get("fi") if _col_map_adv.get("fi") not in (None, "（なし）") else None
+        render_advanced_charts(cleaned_df, _classification, _adv_ipc_col, _raw_ipc_col)
 
     # ステップ戻し
     st.divider()

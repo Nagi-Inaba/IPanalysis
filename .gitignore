@@ -61,3 +61,6 @@ archive/example/dist/
 # データファイル（実データの誤コミット防止）
 *.csv
 !tests/*.csv
+
+# Claude Code local settings
+.claude/

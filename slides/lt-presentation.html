@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IP Analysis Studio — LT Presentation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+/* ===========================================
+   VIEWPORT FITTING: MANDATORY BASE STYLES
+   =========================================== */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+    height: 100%;
+    overflow-x: hidden;
+    font-family: 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+}
+
+html {
+    scroll-snap-type: y mandatory;
+    scroll-behavior: smooth;
+}
+
+:root {
+    /* --- Light theme colors --- */
+    --bg: #ffffff;
+    --bg-subtle: #f5f7fa;
+    --bg-mid: #edf0f4;
+    --text: #1a1a1a;
+    --text-pure: #1a1a1a;
+    --teal: #00b4b4;
+    --teal-dim: rgba(0, 180, 180, 0.08);
+    --gold: #d4a843;
+    --gold-dim: rgba(212, 168, 67, 0.08);
+    --gray-muted: #8899aa;
+    --border: rgba(0, 0, 0, 0.10);
+
+    /* --- Font sizes (user spec) --- */
+    --title-size: 58pt;
+    --h2-size: 58pt;
+    --h3-size: 28pt;
+    --body-size: 20pt;
+    --small-size: 20pt;
+    --tiny-size: 18pt;
+
+    /* --- Spacing --- */
+    --slide-padding: clamp(1.5rem, 5vw, 5rem);
+    --content-gap: clamp(0.5rem, 2vw, 1.5rem);
+    --element-gap: clamp(0.25rem, 0.8vw, 0.6rem);
+}
+
+.slide {
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    scroll-snap-align: start;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    background: var(--bg);
+    color: var(--text);
+}
+
+.slide-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    max-height: 100%;
+    overflow: hidden;
+    padding: var(--slide-padding);
+    padding-top: clamp(1rem, 3vw, 3rem);
+    padding-bottom: clamp(1rem, 3vw, 3rem);
+}
+
+/* ===========================================
+   TYPOGRAPHY
+   =========================================== */
+h1 {
+    font-size: var(--title-size);
+    font-weight: 900;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--text-pure);
+}
+
+h2 {
+    font-size: var(--h2-size);
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--text-pure);
+    margin-bottom: var(--content-gap);
+}
+
+h3 {
+    font-size: var(--h3-size);
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--teal);
+    margin-bottom: var(--element-gap);
+}
+
+p, li {
+    font-size: var(--body-size);
+    font-weight: 400;
+    line-height: 1.55;
+    color: var(--text);
+}
+
+.small-text { font-size: var(--small-size); }
+.tiny-text { font-size: var(--tiny-size); }
+
+/* ===========================================
+   COMPONENTS
+   =========================================== */
+
+/* Accent bar above headings */
+.accent-bar {
+    width: clamp(2rem, 5vw, 4rem);
+    height: 3px;
+    background: var(--teal);
+    margin-bottom: clamp(0.4rem, 1vw, 0.8rem);
+}
+
+/* Slide number — unchanged per user spec */
+.slide-number {
+    position: absolute;
+    top: clamp(0.8rem, 2vw, 1.5rem);
+    right: clamp(1rem, 3vw, 2.5rem);
+    font-size: clamp(0.65rem, 1vw, 0.85rem);
+    font-weight: 500;
+    color: #8899aa;
+    letter-spacing: 0.1em;
+}
+
+/* Tag / badge */
+.tag {
+    display: inline-block;
+    padding: clamp(0.15rem, 0.3vw, 0.25rem) clamp(0.4rem, 0.8vw, 0.7rem);
+    border: 1px solid var(--teal);
+    color: var(--teal);
+    font-size: var(--tiny-size);
+    font-weight: 500;
+    border-radius: 2px;
+    letter-spacing: 0.05em;
+}
+
+.tag--gold {
+    border-color: var(--gold);
+    color: var(--gold);
+}
+
+/* Two-column layout */
+.two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(1rem, 3vw, 3rem);
+    flex: 1;
+    align-items: start;
+}
+
+.three-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: clamp(0.8rem, 2vw, 2rem);
+    flex: 1;
+    align-items: start;
+}
+
+.four-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: clamp(0.6rem, 1.5vw, 1.5rem);
+    flex: 1;
+    align-items: start;
+}
+
+/* Lists */
+ul { list-style: none; }
+
+ul li {
+    position: relative;
+    padding-left: clamp(0.8rem, 1.2vw, 1.2rem);
+    margin-bottom: var(--element-gap);
+}
+
+ul li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: clamp(0.45rem, 0.7vw, 0.55rem);
+    width: 5px;
+    height: 5px;
+    background: var(--teal);
+    border-radius: 50%;
+}
+
+ul.no-bullet li { padding-left: 0; }
+ul.no-bullet li::before { display: none; }
+
+/* Nested list */
+ul li ul { margin-top: var(--element-gap); }
+ul li ul li { font-size: var(--small-size); color: var(--text); }
+ul li ul li::before { width: 4px; height: 4px; background: var(--text); }
+
+/* Numbered list */
+ol {
+    list-style: none;
+    counter-reset: step;
+}
+ol li {
+    counter-increment: step;
+    position: relative;
+    padding-left: clamp(1.5rem, 2.5vw, 2.2rem);
+    margin-bottom: var(--element-gap);
+}
+ol li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 0;
+    font-size: var(--body-size);
+    font-weight: 700;
+    color: var(--teal);
+}
+
+/* Tables */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 18pt;
+}
+th {
+    text-align: left;
+    padding: clamp(0.25rem, 0.5vw, 0.5rem) clamp(0.4rem, 0.8vw, 0.8rem);
+    font-weight: 700;
+    color: var(--teal);
+    border-bottom: 2px solid var(--teal);
+    font-size: 18pt;
+}
+td {
+    padding: clamp(0.2rem, 0.4vw, 0.4rem) clamp(0.4rem, 0.8vw, 0.8rem);
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: top;
+}
+td strong { color: var(--text-pure); font-weight: 700; }
+
+/* Highlight box */
+.highlight-box {
+    background: var(--teal-dim);
+    border-left: 3px solid var(--teal);
+    padding: clamp(0.5rem, 1vw, 1rem) clamp(0.8rem, 1.5vw, 1.5rem);
+    border-radius: 0 4px 4px 0;
+}
+
+.highlight-box--gold {
+    background: var(--gold-dim);
+    border-left-color: var(--gold);
+}
+
+/* Divider */
+.divider {
+    width: 100%;
+    height: 1px;
+    background: var(--border);
+    margin: var(--element-gap) 0;
+}
+
+/* Flow arrow */
+.flow {
+    display: flex;
+    align-items: center;
+    gap: clamp(0.3rem, 0.8vw, 0.8rem);
+    flex-wrap: wrap;
+}
+
+.flow-step {
+    background: var(--bg-subtle);
+    border: 1px solid var(--border);
+    padding: clamp(0.3rem, 0.6vw, 0.6rem) clamp(0.6rem, 1.2vw, 1.2rem);
+    border-radius: 4px;
+    font-size: var(--small-size);
+    font-weight: 500;
+    color: var(--text);
+}
+
+.flow-arrow {
+    color: var(--teal);
+    font-size: var(--body-size);
+    font-weight: 700;
+}
+
+/* ===========================================
+   REVEAL ANIMATIONS
+   =========================================== */
+.reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+.reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.reveal-delay-1 { transition-delay: 0.1s; }
+.reveal-delay-2 { transition-delay: 0.2s; }
+.reveal-delay-3 { transition-delay: 0.3s; }
+.reveal-delay-4 { transition-delay: 0.4s; }
+
+/* ===========================================
+   SLIDE-SPECIFIC: TITLE
+   =========================================== */
+.slide--title .slide-content {
+    justify-content: center;
+    align-items: flex-start;
+    gap: clamp(0.8rem, 2vw, 1.5rem);
+}
+
+.slide--title h1 {
+    font-size: var(--title-size);
+    font-weight: 900;
+    letter-spacing: -0.03em;
+}
+
+.slide--title .subtitle {
+    font-size: var(--body-size);
+    font-weight: 400;
+    color: var(--text);
+    max-width: 40ch;
+    line-height: 1.6;
+}
+
+/* Geometric decoration for title */
+.slide--title::before {
+    content: '';
+    position: absolute;
+    right: clamp(2rem, 8vw, 10rem);
+    top: 50%;
+    transform: translateY(-50%);
+    width: clamp(8rem, 25vw, 22rem);
+    height: clamp(8rem, 25vw, 22rem);
+    border: 2px solid rgba(0, 180, 180, 0.18);
+    border-radius: 50%;
+}
+.slide--title::after {
+    content: '';
+    position: absolute;
+    right: clamp(4rem, 12vw, 14rem);
+    top: 50%;
+    transform: translateY(-50%);
+    width: clamp(5rem, 15vw, 14rem);
+    height: clamp(5rem, 15vw, 14rem);
+    border: 2px solid rgba(0, 180, 180, 0.09);
+    border-radius: 50%;
+}
+
+/* ===========================================
+   SLIDE-SPECIFIC: BEFORE/AFTER
+   =========================================== */
+.slide--before { background: linear-gradient(135deg, #ffffff 0%, #fdf5f0 100%); }
+.slide--after { background: linear-gradient(135deg, #ffffff 0%, #f0fafa 100%); }
+
+/* ===========================================
+   PROGRESS BAR
+   =========================================== */
+.progress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    background: var(--teal);
+    z-index: 1000;
+    transition: width 0.3s ease;
+}
+
+/* ===========================================
+   NAVIGATION HINT
+   =========================================== */
+.nav-hint {
+    position: fixed;
+    bottom: clamp(0.5rem, 1.5vw, 1rem);
+    right: clamp(0.8rem, 2vw, 1.5rem);
+    font-size: clamp(0.6rem, 0.9vw, 0.78rem);
+    color: #8899aa;
+    z-index: 999;
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* ===========================================
+   QR CODE
+   =========================================== */
+.qr-container {
+    width: clamp(180px, 22vh, 280px);
+    height: clamp(180px, 22vh, 280px);
+    margin: 0 auto var(--element-gap);
+    padding: clamp(10px, 1.5vh, 20px);
+    background: #ffffff;
+}
+
+.qr-container svg {
+    width: 100%;
+    height: 100%;
+}
+
+/* ===========================================
+   RESPONSIVE
+   =========================================== */
+@media (max-width: 768px) {
+    .two-col, .three-col, .four-col {
+        grid-template-columns: 1fr;
+    }
+    .slide--title::before, .slide--title::after { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.2s !important;
+    }
+    html { scroll-behavior: auto; }
+    .reveal { opacity: 1; transform: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- Progress Bar -->
+<div class="progress-bar" id="progressBar" style="width: 0%"></div>
+
+<!-- Navigation Hint -->
+<div class="nav-hint" id="navHint">Arrow keys / Scroll</div>
+
+<!-- ==========================================
+     SLIDE 1: TITLE
+     ========================================== -->
+<section class="slide slide--title" id="slide-1">
+    <span class="slide-number">01 / 09</span>
+    <div class="slide-content">
+        <div class="accent-bar reveal"></div>
+        <h1 class="reveal reveal-delay-1">IP Analysis<br>Studio</h1>
+        <p class="subtitle reveal reveal-delay-2">
+            Python スクリプトから Web アプリへ<br>
+            Claude Code で特許分析ツールを作り直した話
+        </p>
+        <div class="reveal reveal-delay-3" style="margin-top: clamp(0.5rem, 1.5vw, 1.5rem);">
+            <span class="tag">Lightning Talk</span>
+            <span class="tag" style="margin-left: 0.5rem;">知財ツール開発者オフ会</span>
+        </div>
+    </div>
+</section>
+
+<!-- ==========================================
+     SLIDE 2: SELF-INTRO (Profile & Background)
+     ========================================== -->
+<section class="slide" id="slide-2">
+    <span class="slide-number">02 / 09</span>
+    <div class="slide-content">
+        <div class="accent-bar reveal"></div>
+        <h2 class="reveal reveal-delay-1">自己紹介</h2>
+        <div class="two-col reveal reveal-delay-2">
+            <!-- Left Column -->
+            <div>
+                <h1 style="font-size: var(--h2-size); margin-bottom: var(--element-gap);">稲葉 凪</h1>
+                <p class="small-text" style="color: var(--text); margin-bottom: var(--content-gap);">Nagi Inaba</p>
+
+                <h3>所属</h3>
+                <ul>
+                    <li>大阪工業大学大学院 知的財産研究科</li>
+                    <li>小林誠ゼミ（シクロハイジア）</li>
+                </ul>
+
+                <div style="margin-top: var(--content-gap);">
+                    <h3>経歴</h3>
+                    <ul>
+                        <li>沼津高専 電気電子工学科 卒業</li>
+                        <li>大阪工業大学 知的財産学部 卒業</li>
+                    </ul>
+                </div>
+
+                <div style="margin-top: var(--content-gap);">
+                    <h3>専門</h3>
+                    <ul>
+                        <li>特許情報分析（IPランドスケープ）</li>
+                        <li>知財戦略・M&amp;A知財評価</li>
+                        <li>ツール開発（Python / Web アプリ(Next.js)）</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div>
+                <h3>資格</h3>
+                <ul>
+                    <li>2級知的財産管理技能士</li>
+                    <li>知的財産アナリスト（特許）<br><span class="small-text" style="color: var(--gold);">3月31日 合格発表予定</span></li>
+                    <li>紅茶検定上級</li>
+                </ul>
+
+                <div style="margin-top: var(--content-gap);">
+                    <h3>実務経験</h3>
+                    <ul>
+                        <li>弁理士事務所インターン<br><span class="small-text" style="color: var(--text);">業務効率化ツール開発・特許出願</span></li>
+                        <li>知財コンサルティングファーム インターン<br><span class="small-text" style="color: var(--text);">IPランドスケープ実践</span></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ==========================================
+     SLIDE 3: SELF-INTRO (Projects)
+     ========================================== -->
+<section class="slide" id="slide-3">
+    <span class="slide-number">03 / 09</span>
+    <div class="slide-content">
+        <div class="accent-bar reveal"></div>
+        <h2 class="reveal reveal-delay-1">個人開発</h2>
+        <div class="three-col reveal reveal-delay-2" style="margin-top: var(--content-gap);">
+            <div class="highlight-box--gold highlight-box">
+                <h3 style="color: var(--gold);">万博予約自動化</h3>
+                <p class="small-text">大阪万博来場予約自動化スクリプトの作成・販売</p>
+            </div>
+            <div class="highlight-box">
+                <h3>街頭演説マップ</h3>
+                <p class="small-text">選挙の街頭演説を地図上で可視化。誰がいつ実施中・予定なのかをピンポイントで表示するウェブサイト</p>
+                <p class="tiny-text" style="color: var(--gray-muted); margin-top: var(--element-gap);">チームみらい用</p>
+            </div>
+            <div class="highlight-box">
+                <h3>ポスティングマップ</h3>
+                <p class="small-text">国勢調査のデータを使用し、ターゲットが多いエリアを探して効率よくポスティングできるようにする Web アプリ</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ==========================================
+     SLIDE 4: BEFORE
+     ========================================== -->
+<section class="slide slide--before" id="slide-4">
+    <span class="slide-number">04 / 09</span>
+    <div class="slide-content">
+        <div class="accent-bar reveal"></div>
+        <div style="display: flex; align-items: center; gap: clamp(0.5rem, 1vw, 1rem); margin-bottom: var(--element-gap);">
+            <h2 class="reveal reveal-delay-1" style="margin-bottom: 0;">Before</h2>
+            <span class="tag--gold tag reveal reveal-delay-1">Python スクリプト時代</span>
+        </div>
+
+        <div class="two-col reveal reveal-delay-2">
+            <div>
+                <h3>やっていたこと</h3>
+                <ul>
+                    <li>CKSweb から CSV をダウンロード</li>
+                    <li>Python スクリプトで CSV を整理・集計</li>
+                    <li>特許分類増減率の計算、出願人カウントなどを pandas で処理</li>
+                </ul>
+
+                <div style="margin-top: var(--content-gap);">
+                    <h3 style="color: var(--gold);">毎回手作業だったこと</h3>
+                    <ul>
+                        <li>Excel でテーブルを範囲選択してグラフ化</li>
+                        <li>グラフの書式設定（軸ラベル、色、凡例）を毎回手動</li>
+                        <li>分析のたびに同じ作業を繰り返す</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div>
+                <h3 style="color: var(--gold);">課題</h3>
+                <div class="highlight-box--gold highlight-box" style="margin-bottom: var(--element-gap);">
+                    <p class="small-text">集計ロジックは自動化できたが、<strong style="color: var(--gold);">可視化が毎回手作業</strong></p>
+                </div>
+                <div class="highlight-box--gold highlight-box" style="margin-bottom: var(--element-gap);">
+                    <p class="small-text">分析結果を他人に共有するのが面倒<br><span class="tiny-text" style="color: var(--text);">Excel ファイルを渡すしかない</span></p>
+                </div>
+                <div class="highlight-box--gold highlight-box">
+                    <p class="small-text">コードが <strong style="color: var(--gold);">1ファイル 1,000行超</strong> に肥大化</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ==========================================
+     SLIDE 5: AFTER
+     ========================================== -->
+<section class="slide slide--after" id="slide-5">
+    <span class="slide-number">05 / 09</span>
+    <div class="slide-content">
+        <div class="accent-bar reveal"></div>
+        <div style="display: flex; align-items: center; gap: clamp(0.5rem, 1vw, 1rem); margin-bottom: var(--element-gap);">
+            <h2 class="reveal reveal-delay-1" style="margin-bottom: 0;">After</h2>
+            <span class="tag reveal reveal-delay-1">Claude Code で Web アプリ化</span>
+        </div>
+
+        <ol class="reveal reveal-delay-2">
+            <li>
+                <strong style="color: var(--text-pure);">Streamlit で Web UI 化</strong>
+                <p class="small-text" style="color: var(--text);">ファイルアップロード → 前処理 → 集計 → グラフ の3ステップ。ブラウザで完結、Excel 手作業ゼロ</p>
+            </li>
+            <li>
+                <strong style="color: var(--text-pure);">Altair でグラフ自動生成</strong>
+                <p class="small-text" style="color: var(--text);">15種以上のインタラクティブチャート。ツールチップ、ズーム、フィルタが標準装備</p>
+            </li>
+            <li>
+                <strong style="color: var(--text-pure);">データ形式の自動判定</strong>
+                <p class="small-text" style="color: var(--text);">CKSweb / J-PlatPat / Questel の列名パターンで自動検出。汎用 CSV も手動列マッピングで対応</p>
+            </li>
+            <li>
+                <strong style="color: var(--text-pure);">出願人名寄せの内蔵</strong>
+                <p class="small-text" style="color: var(--text);">JSON 辞書ベースで表記揺れを統一。GUI で編集・インポート・エクスポート可能</p>
+            </li>
+            <li>
+                <strong style="color: var(--text-pure);">1,069行 → 4ファイル分割リファクタリング</strong>
+                <p class="small-text" style="color: var(--text);">app.py (455行) + charts.py (555行) + cached_agg.py (70行) + constants.py (44行)</p>
+            </li>
+        </ol>
+    </div>
+</section>
+
+<!-- ==========================================
+     SLIDE 6: TECH STACK
+     ========================================== -->
+<section class="slide" id="slide-6">
+    <span class="slide-number">06 / 09</span>
+    <div class="slide-content">
+        <div class="accent-bar reveal"></div>
+        <h2 class="reveal reveal-delay-1">技術スタック</h2>
+
+        <div class="two-col reveal reveal-delay-2">
+            <div>
+                <h3>コア</h3>
+                <table>
+                    <thead><tr><th>技術</th><th>用途</th><th>選定理由</th></tr></thead>
+                    <tbody>
+                        <tr><td><strong>Python 3.8+</strong></td><td>言語</td><td>特許分析ライブラリとの親和性</td></tr>
+                        <tr><td><strong>Streamlit</strong></td><td>Web UI</td><td>Python だけで UI が書ける</td></tr>
+                        <tr><td><strong>pandas</strong></td><td>データ処理</td><td>CSV/Excel の読み込み・集計</td></tr>
+                        <tr><td><strong>openpyxl</strong></td><td>Excel I/O</td><td>xlsx の読み書き</td></tr>
+                        <tr><td><strong>Altair</strong></td><td>可視化</td><td>宣言的 API、Vega-Lite ベース</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div>
+                <h3>インフラ・運用</h3>
+                <table>
+                    <thead><tr><th>技術</th><th>用途</th></tr></thead>
+                    <tbody>
+                        <tr><td><strong>Streamlit Cloud</strong></td><td>ホスティング（GitHub 連携自動デプロイ）</td></tr>
+                        <tr><td><strong>pytest</strong></td><td>テスト（31テスト）</td></tr>
+                        <tr><td><strong>GitHub</strong></td><td>ソースコード管理</td></tr>
+                    </tbody>
+                </table>
+
+                <div style="margin-top: var(--content-gap);">
+                    <h3>開発ツール</h3>
+                    <table>
+                        <thead><tr><th>ツール</th><th>役割</th></tr></thead>
+                        <tbody>
+                            <tr><td><strong>Claude Code</strong></td><td>コーディング・リファクタ・テスト生成</td></tr>
+                            <tr><td><strong>Git</strong></td><td>バージョン管理</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ==========================================
+     SLIDE 7: 17 ANALYSIS FEATURES
+     ========================================== -->
+<section class="slide" id="slide-7">
+    <span class="slide-number">07 / 09</span>
+    <div class="slide-content">
+        <div class="accent-bar reveal"></div>
+        <h2 class="reveal reveal-delay-1">分析機能 <span style="color: var(--teal); font-weight: 900;">17</span> 種</h2>
+
+        <div class="four-col reveal reveal-delay-2">
+            <div>
+                <h3>出願動向</h3>
+                <ul>
+                    <li class="small-text">出願件数推移</li>
+                </ul>
+            </div>
+            <div>
+                <h3>特許分類 / Fターム</h3>
+                <ul>
+                    <li class="small-text">特許分類増減率（バブル）</li>
+                    <li class="small-text">特許分類集計 / メイングループ</li>
+                    <li class="small-text">分類別 年次ヒートマップ</li>
+                    <li class="small-text">分類ツリーマップ</li>
+                    <li class="small-text">Fターム分布</li>
+                    <li class="small-text">Fターム年次ヒートマップ</li>
+                </ul>
+            </div>
+            <div>
+                <h3>出願人</h3>
+                <ul>
+                    <li class="small-text">ランキング（筆頭/全体）</li>
+                    <li class="small-text">増減率 / 年次推移</li>
+                    <li class="small-text">シェア</li>
+                    <li class="small-text">参入退出分析</li>
+                    <li class="small-text">出願人 × 分類 ヒートマップ</li>
+                    <li class="small-text">共同出願ネットワーク</li>
+                </ul>
+            </div>
+            <div>
+                <h3>引用</h3>
+                <ul>
+                    <li class="small-text">被引用ポジショニングマップ</li>
+                    <li class="small-text">被引用出願一覧</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ==========================================
+     SLIDE 8: LEARNINGS
+     ========================================== -->
+<section class="slide" id="slide-8">
+    <span class="slide-number">08 / 09</span>
+    <div class="slide-content">
+        <div class="accent-bar reveal"></div>
+        <h2 class="reveal reveal-delay-1">Claude Code で開発して感じたこと</h2>
+
+        <div class="two-col reveal reveal-delay-2">
+            <div>
+                <h3>よかったこと</h3>
+                <ul>
+                    <li><strong style="color: var(--text-pure);">プロトタイプが爆速</strong><br><span class="small-text" style="color: var(--text);">Streamlit + Altair の組み合わせを提案してくれた</span></li>
+                    <li><strong style="color: var(--text-pure);">リファクタリングが楽</strong><br><span class="small-text" style="color: var(--text);">1,069行 → 4ファイル分割を一発で実行</span></li>
+                    <li><strong style="color: var(--text-pure);">テスト生成</strong><br><span class="small-text" style="color: var(--text);">分析ロジックの pytest を自動生成（31テスト）</span></li>
+                    <li><strong style="color: var(--text-pure);">データ形式対応の追加</strong><br><span class="small-text" style="color: var(--text);">Questel Orbit 対応を列名パターンから自動実装</span></li>
+                </ul>
+            </div>
+
+            <div>
+                <h3 style="color: var(--gold);">気をつけていること</h3>
+                <ul>
+                    <li><strong style="color: var(--text-pure);">動作確認は必ず自分で</strong><br><span class="small-text" style="color: var(--text);">生成コードは必ず動作確認してから採用</span></li>
+                    <li><strong style="color: var(--text-pure);">ドメイン知識は人間が持つ</strong><br><span class="small-text" style="color: var(--text);">特許分析の文脈は Claude が知らない領域</span></li>
+                    <li><strong style="color: var(--text-pure);">計画 → テスト → 実装</strong><br><span class="small-text" style="color: var(--text);">大きな変更は段階的に進める</span></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- ==========================================
+     SLIDE 9: DEMO & REPO with QR CODES
+     ========================================== -->
+<section class="slide" id="slide-9">
+    <span class="slide-number">09 / 09</span>
+    <div class="slide-content" style="justify-content: center; align-items: center; text-align: center;">
+        <div class="accent-bar reveal" style="margin: 0 auto;"></div>
+        <h2 class="reveal reveal-delay-1" style="margin-bottom: var(--content-gap);">Demo &amp; Repository</h2>
+
+        <div class="two-col reveal reveal-delay-2" style="justify-items: center; text-align: center; align-items: start;">
+            <!-- Demo QR -->
+            <div>
+                <h3 style="margin-bottom: var(--element-gap);">ライブデモ</h3>
+                <div class="qr-container">
+                    <svg viewBox="0 0 29 29" xmlns="http://www.w3.org/2000/svg"><path d="M0,0H1V1H0zM1,0H2V1H1zM2,0H3V1H2zM3,0H4V1H3zM4,0H5V1H4zM5,0H6V1H5zM6,0H7V1H6zM10,0H11V1H10zM11,0H12V1H11zM13,0H14V1H13zM14,0H15V1H14zM17,0H18V1H17zM18,0H19V1H18zM22,0H23V1H22zM23,0H24V1H23zM24,0H25V1H24zM25,0H26V1H25zM26,0H27V1H26zM27,0H28V1H27zM28,0H29V1H28zM0,1H1V2H0zM6,1H7V2H6zM8,1H9V2H8zM11,1H12V2H11zM18,1H19V2H18zM22,1H23V2H22zM28,1H29V2H28zM0,2H1V3H0zM2,2H3V3H2zM3,2H4V3H3zM4,2H5V3H4zM6,2H7V3H6zM8,2H9V3H8zM9,2H10V3H9zM10,2H11V3H10zM11,2H12V3H11zM12,2H13V3H12zM14,2H15V3H14zM16,2H17V3H16zM19,2H20V3H19zM22,2H23V3H22zM24,2H25V3H24zM25,2H26V3H25zM26,2H27V3H26zM28,2H29V3H28zM0,3H1V4H0zM2,3H3V4H2zM3,3H4V4H3zM4,3H5V4H4zM6,3H7V4H6zM8,3H9V4H8zM9,3H10V4H9zM11,3H12V4H11zM13,3H14V4H13zM15,3H16V4H15zM16,3H17V4H16zM17,3H18V4H17zM20,3H21V4H20zM22,3H23V4H22zM24,3H25V4H24zM25,3H26V4H25zM26,3H27V4H26zM28,3H29V4H28zM0,4H1V5H0zM2,4H3V5H2zM3,4H4V5H3zM4,4H5V5H4zM6,4H7V5H6zM10,4H11V5H10zM11,4H12V5H11zM12,4H13V5H12zM14,4H15V5H14zM19,4H20V5H19zM20,4H21V5H20zM22,4H23V5H22zM24,4H25V5H24zM25,4H26V5H25zM26,4H27V5H26zM28,4H29V5H28zM0,5H1V6H0zM6,5H7V6H6zM9,5H10V6H9zM10,5H11V6H10zM11,5H12V6H11zM12,5H13V6H12zM18,5H19V6H18zM20,5H21V6H20zM22,5H23V6H22zM28,5H29V6H28zM0,6H1V7H0zM1,6H2V7H1zM2,6H3V7H2zM3,6H4V7H3zM4,6H5V7H4zM5,6H6V7H5zM6,6H7V7H6zM8,6H9V7H8zM10,6H11V7H10zM12,6H13V7H12zM14,6H15V7H14zM16,6H17V7H16zM18,6H19V7H18zM20,6H21V7H20zM22,6H23V7H22zM23,6H24V7H23zM24,6H25V7H24zM25,6H26V7H25zM26,6H27V7H26zM27,6H28V7H27zM28,6H29V7H28zM8,7H9V8H8zM10,7H11V8H10zM16,7H17V8H16zM18,7H19V8H18zM20,7H21V8H20zM0,8H1V9H0zM6,8H7V9H6zM8,8H9V9H8zM9,8H10V9H9zM11,8H12V9H11zM13,8H14V9H13zM14,8H15V9H14zM15,8H16V9H15zM16,8H17V9H16zM17,8H18V9H17zM21,8H22V9H21zM22,8H23V9H22zM25,8H26V9H25zM26,8H27V9H26zM27,8H28V9H27zM0,9H1V10H0zM2,9H3V10H2zM3,9H4V10H3zM4,9H5V10H4zM5,9H6V10H5zM8,9H9V10H8zM11,9H12V10H11zM12,9H13V10H12zM15,9H16V10H15zM19,9H20V10H19zM23,9H24V10H23zM24,9H25V10H24zM26,9H27V10H26zM27,9H28V10H27zM0,10H1V11H0zM1,10H2V11H1zM2,10H3V11H2zM4,10H5V11H4zM6,10H7V11H6zM8,10H9V11H8zM9,10H10V11H9zM10,10H11V11H10zM15,10H16V11H15zM16,10H17V11H16zM18,10H19V11H18zM20,10H21V11H20zM21,10H22V11H21zM0,11H1V12H0zM4,11H5V12H4zM5,11H6V12H5zM8,11H9V12H8zM10,11H11V12H10zM12,11H13V12H12zM18,11H19V12H18zM19,11H20V12H19zM20,11H21V12H20zM21,11H22V12H21zM23,11H24V12H23zM25,11H26V12H25zM1,12H2V13H1zM6,12H7V13H6zM8,12H9V13H8zM9,12H10V13H9zM11,12H12V13H11zM12,12H13V13H12zM14,12H15V13H14zM16,12H17V13H16zM18,12H19V13H18zM19,12H20V13H19zM22,12H23V13H22zM23,12H24V13H23zM28,12H29V13H28zM1,13H2V14H1zM2,13H3V14H2zM4,13H5V14H4zM5,13H6V14H5zM10,13H11V14H10zM13,13H14V14H13zM15,13H16V14H15zM16,13H17V14H16zM17,13H18V14H17zM18,13H19V14H18zM19,13H20V14H19zM20,13H21V14H20zM22,13H23V14H22zM23,13H24V14H23zM24,13H25V14H24zM27,13H28V14H27zM28,13H29V14H28zM2,14H3V15H2zM4,14H5V15H4zM6,14H7V15H6zM8,14H9V15H8zM13,14H14V15H13zM14,14H15V15H14zM15,14H16V15H15zM17,14H18V15H17zM20,14H21V15H20zM22,14H23V15H22zM23,14H24V15H23zM24,14H25V15H24zM25,14H26V15H25zM26,14H27V15H26zM0,15H1V16H0zM1,15H2V16H1zM2,15H3V16H2zM3,15H4V16H3zM4,15H5V16H4zM8,15H9V16H8zM10,15H11V16H10zM11,15H12V16H11zM18,15H19V16H18zM22,15H23V16H22zM24,15H25V16H24zM26,15H27V16H26zM28,15H29V16H28zM0,16H1V17H0zM4,16H5V17H4zM6,16H7V17H6zM8,16H9V17H8zM17,16H18V17H17zM19,16H20V17H19zM25,16H26V17H25zM26,16H27V17H26zM0,17H1V18H0zM3,17H4V18H3zM4,17H5V18H4zM8,17H9V18H8zM10,17H11V18H10zM11,17H12V18H11zM12,17H13V18H12zM13,17H14V18H13zM15,17H16V18H15zM16,17H17V18H16zM19,17H20V18H19zM21,17H22V18H21zM22,17H23V18H22zM23,17H24V18H23zM24,17H25V18H24zM26,17H27V18H26zM27,17H28V18H27zM28,17H29V18H28zM0,18H1V19H0zM1,18H2V19H1zM2,18H3V19H2zM4,18H5V19H4zM5,18H6V19H5zM6,18H7V19H6zM7,18H8V19H7zM8,18H9V19H8zM9,18H10V19H9zM10,18H11V19H10zM15,18H16V19H15zM18,18H19V19H18zM19,18H20V19H19zM21,18H22V19H21zM23,18H24V19H23zM24,18H25V19H24zM25,18H26V19H25zM28,18H29V19H28zM0,19H1V20H0zM4,19H5V20H4zM5,19H6V20H5zM7,19H8V20H7zM12,19H13V20H12zM13,19H14V20H13zM16,19H17V20H16zM19,19H20V20H19zM21,19H22V20H21zM24,19H25V20H24zM0,20H1V21H0zM6,20H7V21H6zM8,20H9V21H8zM9,20H10V21H9zM12,20H13V21H12zM14,20H15V21H14zM17,20H18V21H17zM20,20H21V21H20zM21,20H22V21H21zM22,20H23V21H22zM23,20H24V21H23zM24,20H25V21H24zM26,20H27V21H26zM27,20H28V21H27zM28,20H29V21H28zM8,21H9V22H8zM9,21H10V22H9zM10,21H11V22H10zM12,21H13V22H12zM14,21H15V22H14zM15,21H16V22H15zM19,21H20V22H19zM20,21H21V22H20zM24,21H25V22H24zM25,21H26V22H25zM0,22H1V23H0zM1,22H2V23H1zM2,22H3V23H2zM3,22H4V23H3zM4,22H5V23H4zM5,22H6V23H5zM6,22H7V23H6zM12,22H13V23H12zM15,22H16V23H15zM16,22H17V23H16zM19,22H20V23H19zM20,22H21V23H20zM22,22H23V23H22zM24,22H25V23H24zM25,22H26V23H25zM26,22H27V23H26zM0,23H1V24H0zM6,23H7V24H6zM10,23H11V24H10zM11,23H12V24H11zM12,23H13V24H12zM14,23H15V24H14zM18,23H19V24H18zM19,23H20V24H19zM20,23H21V24H20zM24,23H25V24H24zM0,24H1V25H0zM2,24H3V25H2zM3,24H4V25H3zM4,24H5V25H4zM6,24H7V25H6zM9,24H10V25H9zM13,24H14V25H13zM14,24H15V25H14zM15,24H16V25H15zM16,24H17V25H16zM19,24H20V25H19zM20,24H21V25H20zM21,24H22V25H21zM22,24H23V25H22zM23,24H24V25H23zM24,24H25V25H24zM25,24H26V25H25zM27,24H28V25H27zM0,25H1V26H0zM2,25H3V26H2zM3,25H4V26H3zM4,25H5V26H4zM6,25H7V26H6zM9,25H10V26H9zM10,25H11V26H10zM12,25H13V26H12zM13,25H14V26H13zM14,25H15V26H14zM15,25H16V26H15zM16,25H17V26H16zM19,25H20V26H19zM21,25H22V26H21zM23,25H24V26H23zM25,25H26V26H25zM26,25H27V26H26zM28,25H29V26H28zM0,26H1V27H0zM2,26H3V27H2zM3,26H4V27H3zM4,26H5V27H4zM6,26H7V27H6zM12,26H13V27H12zM13,26H14V27H13zM15,26H16V27H15zM16,26H17V27H16zM17,26H18V27H17zM18,26H19V27H18zM20,26H21V27H20zM22,26H23V27H22zM23,26H24V27H23zM24,26H25V27H24zM25,26H26V27H25zM26,26H27V27H26zM27,26H28V27H27zM0,27H1V28H0zM6,27H7V28H6zM10,27H11V28H10zM11,27H12V28H11zM12,27H13V28H12zM14,27H15V28H14zM18,27H19V28H18zM22,27H23V28H22zM23,27H24V28H23zM24,27H25V28H24zM25,27H26V28H25zM26,27H28V28H26zM28,27H29V28H28zM0,28H1V29H0zM1,28H2V29H1zM2,28H3V29H2zM3,28H4V29H3zM4,28H5V29H4zM5,28H6V29H5zM6,28H7V29H6zM8,28H9V29H8zM9,28H10V29H9zM11,28H12V29H11zM12,28H13V29H12zM14,28H15V29H14zM15,28H16V29H15zM17,28H18V29H17zM19,28H20V29H19zM22,28H23V29H22zM26,28H27V29H26z" fill="#000000" fill-opacity="1" fill-rule="nonzero" stroke="none"/></svg>
+                </div>
+                <p style="font-size: var(--tiny-size); font-weight: 700; color: var(--teal);">
+                    https://ipanalysis-webapp.streamlit.app/
+                </p>
+                <p class="tiny-text" style="color: var(--text); margin-top: var(--element-gap);">アカウント不要・無料・サンプルデータ内蔵</p>
+            </div>
+
+            <!-- GitHub QR -->
+            <div>
+                <h3 style="margin-bottom: var(--element-gap);">GitHub</h3>
+                <div class="qr-container">
+                    <svg viewBox="0 0 29 29" xmlns="http://www.w3.org/2000/svg"><path d="M0,0H1V1H0zM1,0H2V1H1zM2,0H3V1H2zM3,0H4V1H3zM4,0H5V1H4zM5,0H6V1H5zM6,0H7V1H6zM8,0H9V1H8zM9,0H10V1H9zM10,0H11V1H10zM15,0H16V1H15zM16,0H17V1H16zM17,0H18V1H17zM18,0H19V1H18zM22,0H23V1H22zM23,0H24V1H23zM24,0H25V1H24zM25,0H26V1H25zM26,0H27V1H26zM27,0H28V1H27zM28,0H29V1H28zM0,1H1V2H0zM6,1H7V2H6zM9,1H10V2H9zM10,1H11V2H10zM12,1H13V2H12zM13,1H14V2H13zM14,1H15V2H14zM18,1H19V2H18zM19,1H20V2H19zM22,1H23V2H22zM28,1H29V2H28zM0,2H1V3H0zM2,2H3V3H2zM3,2H4V3H3zM4,2H5V3H4zM6,2H7V3H6zM10,2H11V3H10zM12,2H13V3H12zM14,2H15V3H14zM15,2H16V3H15zM17,2H18V3H17zM18,2H19V3H18zM19,2H20V3H19zM20,2H21V3H20zM22,2H23V3H22zM24,2H25V3H24zM25,2H26V3H25zM26,2H27V3H26zM28,2H29V3H28zM0,3H1V4H0zM2,3H3V4H2zM3,3H4V4H3zM4,3H5V4H4zM6,3H7V4H6zM8,3H9V4H8zM13,3H14V4H13zM14,3H15V4H14zM16,3H17V4H16zM22,3H23V4H22zM24,3H25V4H24zM25,3H26V4H25zM26,3H27V4H26zM28,3H29V4H28zM0,4H1V5H0zM2,4H3V5H2zM3,4H4V5H3zM4,4H5V5H4zM6,4H7V5H6zM8,4H9V5H8zM9,4H10V5H9zM13,4H14V5H13zM15,4H16V5H15zM16,4H17V5H16zM17,4H18V5H17zM18,4H19V5H18zM22,4H23V5H22zM24,4H25V5H24zM25,4H26V5H25zM26,4H27V5H26zM28,4H29V5H28zM0,5H1V6H0zM6,5H7V6H6zM8,5H9V6H8zM11,5H12V6H11zM14,5H15V6H14zM16,5H17V6H16zM19,5H20V6H19zM22,5H23V6H22zM28,5H29V6H28zM0,6H1V7H0zM1,6H2V7H1zM2,6H3V7H2zM3,6H4V7H3zM4,6H5V7H4zM5,6H6V7H5zM6,6H7V7H6zM8,6H9V7H8zM10,6H11V7H10zM12,6H13V7H12zM14,6H15V7H14zM16,6H17V7H16zM18,6H19V7H18zM20,6H21V7H20zM22,6H23V7H22zM23,6H24V7H23zM24,6H25V7H24zM25,6H26V7H25zM26,6H27V7H26zM27,6H28V7H27zM28,6H29V7H28zM8,7H9V8H8zM11,7H12V8H11zM12,7H13V8H12zM14,7H15V8H14zM15,7H16V8H15zM16,7H17V8H16zM17,7H18V8H17zM18,7H19V8H18zM0,8H1V9H0zM4,8H5V9H4zM6,8H7V9H6zM7,8H8V9H7zM8,8H9V9H8zM9,8H10V9H9zM10,8H11V9H10zM11,8H12V9H11zM19,8H20V9H19zM20,8H21V9H20zM21,8H22V9H21zM22,8H23V9H22zM23,8H24V9H23zM24,8H25V9H24zM25,8H26V9H25zM28,8H29V9H28zM0,9H1V10H0zM1,9H2V10H1zM3,9H4V10H3zM7,9H8V10H7zM8,9H9V10H8zM10,9H11V10H10zM12,9H13V10H12zM14,9H15V10H14zM15,9H16V10H15zM16,9H17V10H16zM17,9H18V10H17zM18,9H19V10H18zM21,9H22V10H21zM22,9H23V10H22zM23,9H24V10H23zM24,9H25V10H24zM25,9H26V10H25zM26,9H27V10H26zM27,9H28V10H27zM28,9H29V10H28zM0,10H1V11H0zM2,10H3V11H2zM4,10H5V11H4zM6,10H7V11H6zM11,10H12V11H11zM12,10H13V11H12zM15,10H16V11H15zM16,10H17V11H16zM17,10H18V11H17zM22,10H23V11H22zM23,10H24V11H23zM28,10H29V11H28zM1,11H2V12H1zM2,11H3V12H2zM3,11H4V12H3zM8,11H9V12H8zM10,11H11V12H10zM12,11H13V12H12zM14,11H15V12H14zM17,11H18V12H17zM18,11H19V12H18zM19,11H20V12H19zM20,11H21V12H20zM22,11H23V12H22zM23,11H24V12H23zM24,11H25V12H24zM25,11H26V12H25zM27,11H28V12H27zM28,11H29V12H28zM0,12H1V13H0zM3,12H4V13H3zM6,12H7V13H6zM8,12H9V13H8zM11,12H12V13H11zM15,12H16V13H15zM17,12H18V13H17zM20,12H21V13H20zM21,12H22V13H21zM27,12H28V13H27zM0,13H1V14H0zM1,13H2V14H1zM7,13H8V14H7zM9,13H10V14H9zM10,13H11V14H10zM13,13H14V14H13zM15,13H16V14H15zM16,13H17V14H16zM17,13H18V14H17zM18,13H19V14H18zM19,13H20V14H19zM22,13H23V14H22zM23,13H24V14H23zM24,13H25V14H24zM25,13H26V14H25zM26,13H27V14H26zM27,13H28V14H27zM28,13H29V14H28zM1,14H2V15H1zM2,14H3V15H2zM5,14H6V15H5zM6,14H7V15H6zM7,14H8V15H7zM8,14H9V15H8zM10,14H11V15H10zM11,14H12V15H11zM13,14H14V15H13zM15,14H16V15H15zM18,14H19V15H18zM20,14H21V15H20zM21,14H22V15H21zM22,14H23V15H22zM23,14H24V15H23zM25,14H26V15H25zM26,14H27V15H26zM28,14H29V15H28zM1,15H2V16H1zM4,15H5V16H4zM5,15H6V16H5zM7,15H8V16H7zM8,15H9V16H8zM9,15H10V16H9zM12,15H13V16H12zM14,15H16V16H14zM16,15H17V16H16zM17,15H18V16H17zM19,15H20V16H19zM20,15H21V16H20zM21,15H22V16H21zM27,15H28V16H27zM28,15H29V16H28zM0,16H1V17H0zM1,16H2V17H1zM2,16H3V17H2zM3,16H4V17H3zM5,16H6V17H5zM6,16H7V17H6zM7,16H8V17H7zM9,16H10V17H9zM11,16H12V17H11zM12,16H13V17H12zM13,16H14V17H13zM14,16H15V17H14zM17,16H18V17H17zM20,16H21V17H20zM23,16H24V17H23zM27,16H28V17H27zM0,17H1V18H0zM2,17H3V18H2zM8,17H9V18H8zM11,17H12V18H11zM14,17H15V18H14zM15,17H16V18H15zM16,17H17V18H16zM18,17H19V18H18zM20,17H21V18H20zM22,17H23V18H22zM23,17H24V18H23zM24,17H25V18H24zM25,17H26V18H25zM27,17H28V18H27zM28,17H29V18H28zM2,18H3V19H2zM4,18H5V19H4zM6,18H7V19H6zM9,18H10V19H9zM10,18H11V19H10zM13,18H14V19H13zM14,18H15V19H14zM15,18H16V19H15zM16,18H17V19H16zM17,18H18V19H17zM20,18H21V19H20zM26,18H27V19H26zM28,18H29V19H28zM3,19H4V20H3zM4,19H5V20H4zM5,19H6V20H5zM7,19H8V20H7zM8,19H9V20H8zM10,19H11V20H10zM12,19H13V20H12zM13,19H14V20H13zM15,19H16V20H15zM16,19H17V20H16zM17,19H18V20H17zM18,19H20V20H18zM20,19H21V20H20zM21,19H22V20H21zM23,19H24V20H23zM24,19H25V20H24zM27,19H28V20H27zM28,19H29V20H28zM0,20H1V21H0zM1,20H2V21H1zM3,20H4V21H3zM6,20H7V21H6zM7,20H8V21H7zM9,20H10V21H9zM10,20H11V21H10zM11,20H12V21H11zM13,20H14V21H13zM16,20H17V21H16zM17,20H18V21H17zM20,20H21V21H20zM21,20H22V21H21zM22,20H23V21H22zM23,20H24V21H23zM24,20H25V21H24zM25,20H26V21H25zM28,20H29V21H28zM8,21H9V22H8zM13,21H14V22H13zM14,21H15V22H14zM16,21H17V22H16zM18,21H19V22H18zM19,21H20V22H19zM20,21H21V22H20zM24,21H25V22H24zM28,21H29V22H28zM0,22H1V23H0zM1,22H2V23H1zM2,22H3V23H2zM3,22H4V23H3zM4,22H5V23H4zM5,22H6V23H5zM6,22H7V23H6zM8,22H9V23H8zM9,22H10V23H9zM12,22H13V23H12zM15,22H16V23H15zM19,22H20V23H19zM20,22H21V23H20zM22,22H23V23H22zM24,22H25V23H24zM25,22H26V23H25zM26,22H27V23H26zM28,22H29V23H28zM0,23H1V24H0zM6,23H7V24H6zM14,23H15V24H14zM15,23H16V24H15zM16,23H17V24H16zM17,23H18V24H17zM19,23H20V24H19zM20,23H21V24H20zM24,23H25V24H24zM27,23H28V24H27zM28,23H29V24H28zM0,24H1V25H0zM2,24H3V25H2zM3,24H4V25H3zM4,24H5V25H4zM6,24H7V25H6zM8,24H9V25H8zM13,24H14V25H13zM14,24H15V25H14zM15,24H16V25H15zM17,24H18V25H17zM19,24H20V25H19zM20,24H21V25H20zM21,24H22V25H21zM22,24H23V25H22zM23,24H24V25H23zM24,24H25V25H24zM25,24H26V25H25zM28,24H29V25H28zM0,25H1V26H0zM2,25H3V26H2zM3,25H4V26H3zM4,25H5V26H4zM6,25H7V26H6zM11,25H12V26H11zM12,25H13V26H12zM13,25H14V26H13zM16,25H17V26H16zM18,25H19V26H18zM21,25H22V26H21zM28,25H29V26H28zM0,26H1V27H0zM2,26H3V27H2zM3,26H4V27H3zM4,26H5V27H4zM6,26H7V27H6zM9,26H10V27H9zM11,26H12V27H11zM12,26H13V27H12zM14,26H15V27H14zM15,26H16V27H15zM17,26H18V27H17zM19,26H20V27H19zM20,26H21V27H20zM21,26H22V27H21zM25,26H26V27H25zM26,26H27V27H26zM27,26H28V27H27zM28,26H29V27H28zM0,27H1V28H0zM6,27H7V28H6zM9,27H10V28H9zM11,27H12V28H11zM12,27H13V28H12zM14,27H15V28H14zM17,27H18V28H17zM18,27H19V28H18zM20,27H21V28H20zM21,27H22V28H21zM22,27H23V28H22zM24,27H25V28H24zM25,27H26V28H25zM27,27H28V28H27zM28,27H29V28H28zM0,28H1V29H0zM1,28H2V29H1zM2,28H3V29H2zM3,28H4V29H3zM4,28H5V29H4zM5,28H6V29H5zM6,28H7V29H6zM8,28H9V29H8zM10,28H11V29H10zM13,28H14V29H13zM15,28H16V29H15zM17,28H18V29H17zM18,28H19V29H18zM20,28H21V29H20zM21,28H22V29H21zM22,28H23V29H22zM23,28H24V29H23zM24,28H25V29H24zM25,28H26V29H25zM27,28H28V29H27z" fill="#000000" fill-opacity="1" fill-rule="nonzero" stroke="none"/></svg>
+                </div>
+                <p style="font-size: var(--tiny-size); font-weight: 700; color: var(--text-pure);">
+                    https://github.com/Nagi-Inaba/IPanalysis
+                </p>
+            </div>
+        </div>
+
+        <div class="divider reveal reveal-delay-3" style="max-width: 400px; margin: var(--content-gap) auto;"></div>
+        <p class="reveal reveal-delay-3" style="font-size: var(--tiny-size); color: var(--text);">
+            稲葉 凪 — 大阪工業大学大学院 知的財産研究科
+        </p>
+    </div>
+</section>
+
+<script>
+/* ===========================================
+   PRESENTATION CONTROLLER
+   =========================================== */
+class PresentationController {
+    constructor() {
+        this.slides = document.querySelectorAll('.slide');
+        this.currentSlide = 0;
+        this.totalSlides = this.slides.length;
+        this.isTransitioning = false;
+        this.touchStartY = 0;
+        this.touchStartX = 0;
+
+        this.initNavigation();
+        this.initRevealObserver();
+        this.updateProgress();
+        this.hideNavHint();
+    }
+
+    initNavigation() {
+        /* Keyboard */
+        document.addEventListener('keydown', (e) => {
+            switch (e.key) {
+                case 'ArrowDown':
+                case 'ArrowRight':
+                case ' ':
+                case 'PageDown':
+                    e.preventDefault();
+                    this.next();
+                    break;
+                case 'ArrowUp':
+                case 'ArrowLeft':
+                case 'PageUp':
+                    e.preventDefault();
+                    this.prev();
+                    break;
+                case 'Home':
+                    e.preventDefault();
+                    this.goTo(0);
+                    break;
+                case 'End':
+                    e.preventDefault();
+                    this.goTo(this.totalSlides - 1);
+                    break;
+            }
+        });
+
+        /* Wheel */
+        let wheelTimer = null;
+        document.addEventListener('wheel', (e) => {
+            if (wheelTimer) return;
+            wheelTimer = setTimeout(() => { wheelTimer = null; }, 800);
+            if (e.deltaY > 30) this.next();
+            else if (e.deltaY < -30) this.prev();
+        }, { passive: true });
+
+        /* Touch */
+        document.addEventListener('touchstart', (e) => {
+            this.touchStartY = e.touches[0].clientY;
+            this.touchStartX = e.touches[0].clientX;
+        }, { passive: true });
+
+        document.addEventListener('touchend', (e) => {
+            const deltaY = this.touchStartY - e.changedTouches[0].clientY;
+            const deltaX = this.touchStartX - e.changedTouches[0].clientX;
+            if (Math.abs(deltaY) > Math.abs(deltaX) && Math.abs(deltaY) > 50) {
+                if (deltaY > 0) this.next();
+                else this.prev();
+            } else if (Math.abs(deltaX) > 50) {
+                if (deltaX > 0) this.next();
+                else this.prev();
+            }
+        }, { passive: true });
+
+        /* Scroll snap detection */
+        let scrollTimer = null;
+        document.addEventListener('scroll', () => {
+            if (scrollTimer) clearTimeout(scrollTimer);
+            scrollTimer = setTimeout(() => {
+                const vh = window.innerHeight;
+                this.currentSlide = Math.round(window.scrollY / vh);
+                this.updateProgress();
+            }, 100);
+        }, { passive: true });
+    }
+
+    next() {
+        if (this.currentSlide < this.totalSlides - 1) {
+            this.goTo(this.currentSlide + 1);
+        }
+    }
+
+    prev() {
+        if (this.currentSlide > 0) {
+            this.goTo(this.currentSlide - 1);
+        }
+    }
+
+    goTo(index) {
+        this.currentSlide = index;
+        this.slides[index].scrollIntoView({ behavior: 'smooth' });
+        this.updateProgress();
+    }
+
+    updateProgress() {
+        const progress = ((this.currentSlide + 1) / this.totalSlides) * 100;
+        document.getElementById('progressBar').style.width = progress + '%';
+    }
+
+    hideNavHint() {
+        setTimeout(() => {
+            const hint = document.getElementById('navHint');
+            if (hint) hint.style.opacity = '0';
+        }, 4000);
+    }
+
+    initRevealObserver() {
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const reveals = entry.target.querySelectorAll('.reveal');
+                    reveals.forEach(el => el.classList.add('visible'));
+                } else {
+                    const reveals = entry.target.querySelectorAll('.reveal');
+                    reveals.forEach(el => el.classList.remove('visible'));
+                }
+            });
+        }, { threshold: 0.3 });
+
+        this.slides.forEach(slide => observer.observe(slide));
+    }
+}
+
+/* Initialize */
+document.addEventListener('DOMContentLoaded', () => {
+    new PresentationController();
+});
+</script>
+</body>
+</html>

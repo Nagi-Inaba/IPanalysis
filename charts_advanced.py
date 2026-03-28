@@ -2,7 +2,7 @@
 """追加分析グラフ — 技術ライフサイクル・共起・技術集中度。"""
 from __future__ import annotations
 
-from typing import Dict
+from typing import Optional
 
 import altair as alt
 import pandas as pd
@@ -11,18 +11,20 @@ import streamlit as st
 from constants import CHART_HEIGHT_BUBBLE, CHART_HEIGHT_HEATMAP
 
 
-def render_advanced_charts(cleaned_df: pd.DataFrame, classification: str, ipc_col: str) -> None:
+def render_advanced_charts(
+    cleaned_df: pd.DataFrame, classification: str, ipc_col: str, raw_ipc_col: Optional[str] = None,
+) -> None:
     """追加分析グラフを描画する。"""
-    from analysis_advanced import (
-        analysis_technology_lifecycle,
-        analysis_ipc_cooccurrence,
-        analysis_applicant_concentration,
+    from cached_agg import (
+        cached_technology_lifecycle,
+        cached_ipc_cooccurrence,
+        cached_applicant_concentration,
     )
 
     with st.expander("高度な分析（3グラフ）", expanded=False):
-        _render_lifecycle(cleaned_df, classification, ipc_col, analysis_technology_lifecycle)
-        _render_cooccurrence(cleaned_df, classification, ipc_col, analysis_ipc_cooccurrence)
-        _render_concentration(cleaned_df, ipc_col, analysis_applicant_concentration)
+        _render_lifecycle(cleaned_df, classification, ipc_col, cached_technology_lifecycle)
+        _render_cooccurrence(cleaned_df, classification, raw_ipc_col, cached_ipc_cooccurrence)
+        _render_concentration(cleaned_df, ipc_col, cached_applicant_concentration)
 
 
 def _render_lifecycle(cleaned_df, classification, ipc_col, analysis_fn) -> None:
@@ -53,6 +55,9 @@ def _render_lifecycle(cleaned_df, classification, ipc_col, analysis_fn) -> None:
 
 
 def _render_cooccurrence(cleaned_df, classification, ipc_col, analysis_fn) -> None:
+    if ipc_col is None or ipc_col not in cleaned_df.columns:
+        st.info("共起分析に必要な分類列が設定されていません。")
+        return
     st.markdown(f"### {classification} 共起分析（技術融合マップ）")
     st.caption("同一出願に複数の分類コードが付与されているペアを分析します。Jaccard係数が高いほど技術融合度が高いことを示します。")
     co_n = st.slider("表示ペア数", 5, 50, 20, key="co_ipc_n")
