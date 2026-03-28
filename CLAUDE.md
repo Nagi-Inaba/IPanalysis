@@ -1,6 +1,6 @@
-# IPanalysis -- IPC 増減率分析 Web アプリ
+# IPanalysis -- 特許分類増減率分析 Web アプリ
 
-特許データ（xlsx/csv）から IPC 分類の経年増減率・出願人動向・技術マップを分析する Streamlit アプリ。
+特許データ（xlsx/csv）から特許分類（IPC/FI/Fターム）の経年増減率・出願人動向・技術マップを分析する Streamlit アプリ。
 
 ## 所属組織: PatentScope（子会社）
 
@@ -45,12 +45,13 @@ https://ipanalysis-webapp.streamlit.app/
 | `cached_agg.py` | Streamlit キャッシュ付き集計ラッパー（70行） |
 | `constants.py` | IPC/FI/Fターム粒度定数（44行） |
 | `example_analysis.py` | 分析ロジック（17種の集計関数 + データクリーニング + 名寄せ辞書） |
-| `patent_analysis.py` | IPC増減率計算（CLI/Web 両対応、openpyxl ベース） |
+| `patent_analysis.py` | 特許分類増減率計算（CLI/Web 両対応、openpyxl ベース） |
 | `chart_utils.py` | グラフ PNG エクスポート（altair_saver 依存 -- 要更新） |
 | `name_mapping.json` | 出願人名寄せ辞書（カスタマイズ可能） |
 | `tests/` | pytest テスト（test_analysis.py, test_cleaning.py） |
 | `excel_sample/` | サンプル Excel データ |
 | `archive/` | 旧コード・アーカイブ |
+| `slides/` | LTプレゼン（HTML + PPTX + 構成md）。`python slides/generate_pptx.py` で再生成（python-pptx, qrcode[pil] 必要） |
 
 ## 対応データ形式
 
@@ -60,10 +61,10 @@ https://ipanalysis-webapp.streamlit.app/
 
 ## 分析機能（17種）
 
-出願動向、IPC増減率、IPCサマリ、IPCメイングループ、IPC年次ヒートマップ、IPCツリーマップ、
+出願動向、特許分類増減率、特許分類集計、筆頭分類メイングループ、分類別年次ヒートマップ、分類ツリーマップ、
 出願人ランキング（筆頭/全体）、出願人増減率、出願人年次推移、出願人シェア、
 参入退出分析、引用マップ、被引用出願一覧、
-出願人xIPCヒートマップ、共同出願ネットワーク、
+出願人x分類ヒートマップ、共同出願ネットワーク、
 Fターム分布、Fターム年次ヒートマップ
 
 ## テスト
@@ -81,3 +82,4 @@ Fターム分布、Fターム年次ヒートマップ
 - app.py を 1069→455 行にリファクタリング済み（charts.py, cached_agg.py, constants.py に分割）
 - chart_utils.py の altair_saver は非推奨 -- vl-convert-python への移行が必要
 - example_analysis.py が 822 行で 800 行上限に近い -- 名寄せ辞書の外部化で軽量化可能
+- UI表示は「特許分類」に統一済みだが、内部カラム名（constants.py IPC_LEVEL_COL / example_analysis.py COL_IPC）は「IPC」のまま。charts.py では `.rename(columns={"IPC": classification})` でUI表示時にリネームしている

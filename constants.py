@@ -42,3 +42,12 @@ FTERM_LEVEL_OPTIONS = {
     "テーマ＋観点 (例: 5H029AJ)": "viewpoint",
     "フルFターム (例: 5H029AJ12)": "full",
 }
+
+# グラフ高さ定数
+CHART_HEIGHT_BUBBLE = 600      # バブルチャート (現在 500)
+CHART_HEIGHT_LINE = 480        # 折れ線グラフ (現在 380)
+CHART_HEIGHT_AREA = 480        # 積み上げ面グラフ (現在 400)
+CHART_HEIGHT_HEATMAP = 480     # ヒートマップ (現在 400)
+CHART_HEIGHT_NETWORK = 500     # ネットワーク (現在 400)
+CHART_HEIGHT_BAR_PER_ITEM = 26 # 横棒グラフの1項目あたり (現在 22)
+CHART_HEIGHT_BAR_MIN = 350     # 横棒グラフの最低高さ (現在 300)

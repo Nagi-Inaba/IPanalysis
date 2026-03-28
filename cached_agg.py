@@ -68,3 +68,37 @@ def cached_citation_map(df: pd.DataFrame) -> pd.DataFrame:
 @st.cache_data
 def cached_cited_applications(df: pd.DataFrame) -> pd.DataFrame:
     return analysis_cited_applications(df)
+
+
+# ===================== 高度な分析（analysis_advanced） =====================
+
+from analysis_advanced import (
+    analysis_applicant_concentration,
+    analysis_ipc_cooccurrence,
+    analysis_technology_lifecycle,
+)
+
+
+@st.cache_data
+def cached_technology_lifecycle(
+    df: pd.DataFrame, ipc_col: str, top_n: int = 20
+) -> pd.DataFrame:
+    return analysis_technology_lifecycle(df, ipc_col=ipc_col, top_n=top_n)
+
+
+@st.cache_data
+def cached_ipc_cooccurrence(
+    df: pd.DataFrame, ipc_col: str, ipc_level: str = "subclass", top_n: int = 30
+) -> pd.DataFrame:
+    return analysis_ipc_cooccurrence(
+        df, ipc_col=ipc_col, ipc_level=ipc_level, top_n=top_n
+    )
+
+
+@st.cache_data
+def cached_applicant_concentration(
+    df: pd.DataFrame, ipc_col: str, min_applications: int = 10
+) -> pd.DataFrame:
+    return analysis_applicant_concentration(
+        df, ipc_col=ipc_col, min_applications=min_applications
+    )

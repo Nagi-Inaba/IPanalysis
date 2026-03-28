@@ -10,12 +10,20 @@ import pandas as pd
 import streamlit as st
 
 from chart_utils import chart_to_png_bytes
+from charts_advanced import render_advanced_charts
 from constants import (
     IPC_LEVEL_OPTIONS,
     IPC_LEVEL_COL,
     FI_LEVEL_OPTIONS,
     FI_LEVEL_COL,
     FTERM_LEVEL_OPTIONS,
+    CHART_HEIGHT_BUBBLE,
+    CHART_HEIGHT_LINE,
+    CHART_HEIGHT_AREA,
+    CHART_HEIGHT_HEATMAP,
+    CHART_HEIGHT_NETWORK,
+    CHART_HEIGHT_BAR_PER_ITEM,
+    CHART_HEIGHT_BAR_MIN,
 )
 from example_analysis import (
     COL_IPC,
@@ -99,67 +107,55 @@ def render_step3(agg: Dict[str, pd.DataFrame], cleaned_df: pd.DataFrame) -> None
     st.divider()
     show_labels = _render_chart_config()
 
-    # --------- 1. 出願件数 横棒グラフ ---------
-    total_df = app_count_df if (app_count_df is not None and not app_count_df.empty) else lead_count_df
-    if total_df is not None and not total_df.empty:
-        _render_applicant_bar(total_df, show_labels)
+    # ==================== 出願動向グループ (4) ====================
+    with st.expander("出願動向（4グラフ）", expanded=True):
+        total_df = app_count_df if (app_count_df is not None and not app_count_df.empty) else lead_count_df
+        if total_df is not None and not total_df.empty:
+            _render_applicant_bar(total_df, show_labels)
+        if trend_df is not None and not trend_df.empty:
+            _render_trend_line(trend_df, show_labels)
+        if cleaned_df is not None:
+            _render_applicant_year_trend(cleaned_df)
+        if cleaned_df is not None:
+            _render_applicant_share(cleaned_df)
 
-    # --------- 2. 出願件数推移 折れ線グラフ ---------
-    if trend_df is not None and not trend_df.empty:
-        _render_trend_line(trend_df, show_labels)
+    # ==================== 技術分類グループ (4) ====================
+    with st.expander(f"技術分類分析（4グラフ）", expanded=True):
+        if ipc_df is not None and not ipc_df.empty:
+            _render_ipc_bubble(ipc_df, _classification, _ipc_level_name, show_labels)
+        if cleaned_df is not None:
+            _render_ipc_treemap(cleaned_df, _classification, _ipc_level_name, _ipc_col)
+        if cleaned_df is not None:
+            _render_applicant_ipc_heatmap(cleaned_df, _classification, _ipc_level_name, _ipc_col)
+        if cleaned_df is not None:
+            _render_ipc_year_heatmap(cleaned_df, _classification, _ipc_level_name, _ipc_col)
 
-    # --------- 3. IPC増減率 バブルチャート ---------
-    if ipc_df is not None and not ipc_df.empty:
-        _render_ipc_bubble(ipc_df, _classification, _ipc_level_name, show_labels)
+    # ==================== 出願人分析グループ (3) ====================
+    with st.expander("出願人分析（3グラフ）", expanded=False):
+        if app_growth_df is not None and not app_growth_df.empty:
+            _render_applicant_growth(app_growth_df, show_labels)
+        if entry_exit_df is not None and not entry_exit_df.empty:
+            _render_entry_exit(entry_exit_df, show_labels)
+        if cleaned_df is not None:
+            _render_co_applicant(cleaned_df)
 
-    # --------- 4. 参入撤退 バブルチャート ---------
-    if entry_exit_df is not None and not entry_exit_df.empty:
-        _render_entry_exit(entry_exit_df, show_labels)
+    # ==================== 引用分析グループ (2) ====================
+    with st.expander("引用分析（2グラフ）", expanded=False):
+        if citation_df is not None and not citation_df.empty:
+            _render_citation_map_a(citation_df, show_labels)
+            _render_citation_map_b(citation_df, show_labels)
 
-    # --------- 5-6. 被引用ポジショニングマップ ---------
-    if citation_df is not None and not citation_df.empty:
-        _render_citation_map_a(citation_df, show_labels)
-        _render_citation_map_b(citation_df, show_labels)
-
-    # --------- 7. 出願増減率 バブルチャート (出願人版) ---------
-    if app_growth_df is not None and not app_growth_df.empty:
-        _render_applicant_growth(app_growth_df, show_labels)
-
-    # ==================== 追加グラフ ====================
-    st.divider()
-    st.subheader("追加グラフ")
-
-    # --------- 8. 出願人別 年次推移 折れ線（複数系列） ---------
-    if cleaned_df is not None:
-        _render_applicant_year_trend(cleaned_df)
-
-    # --------- 9. IPC分布 ツリーマップ ---------
-    if cleaned_df is not None:
-        _render_ipc_treemap(cleaned_df, _classification, _ipc_level_name, _ipc_col)
-
-    # --------- 10. 出願人 x IPC ヒートマップ ---------
-    if cleaned_df is not None:
-        _render_applicant_ipc_heatmap(cleaned_df, _classification, _ipc_level_name, _ipc_col)
-
-    # --------- 11. 出願人シェア 積み上げ面グラフ ---------
-    if cleaned_df is not None:
-        _render_applicant_share(cleaned_df)
-
-    # --------- 12. 共同出願ネットワーク（ヒートマップ） ---------
-    if cleaned_df is not None:
-        _render_co_applicant(cleaned_df)
-
-    # --------- 13. IPC別 年次推移 ヒートマップ ---------
-    if cleaned_df is not None:
-        _render_ipc_year_heatmap(cleaned_df, _classification, _ipc_level_name, _ipc_col)
-
-    # --------- 14. Fターム分布（棒グラフ） ---------
+    # ==================== Fターム分析グループ (2) ====================
     if cleaned_df is not None and _fterm_col_name and _fterm_col_name in cleaned_df.columns:
-        _render_fterm_distribution(cleaned_df, _fterm_col_name, _fterm_level)
+        with st.expander("Fターム分析（2グラフ）", expanded=False):
+            _render_fterm_distribution(cleaned_df, _fterm_col_name, _fterm_level)
+            _render_fterm_year_heatmap(cleaned_df, _fterm_col_name, _fterm_level)
 
-    # --------- 15. Fターム別年次推移（ヒートマップ） ---------
-    if cleaned_df is not None and _fterm_col_name and _fterm_col_name in cleaned_df.columns:
-        _render_fterm_year_heatmap(cleaned_df, _fterm_col_name, _fterm_level)
+    # ==================== 高度な分析グループ (3) ====================
+    if cleaned_df is not None:
+        _col_map_adv = st.session_state.get("column_mapping", {})
+        _adv_ipc_col = _ipc_col
+        render_advanced_charts(cleaned_df, _classification, _adv_ipc_col)
 
     # ステップ戻し
     st.divider()
@@ -272,7 +268,7 @@ def _render_applicant_bar(total_df: pd.DataFrame, show_labels: bool) -> None:
     )
     bar_text = bar_chart.mark_text(align="left", dx=3, fontSize=11).encode(text=f"{count_col}:Q")
     bar_layer = bar_chart + bar_text if show_labels else bar_chart
-    bar_layer = bar_layer.properties(height=max(300, max_show * 22)).interactive()
+    bar_layer = bar_layer.properties(height=max(CHART_HEIGHT_BAR_MIN, max_show * CHART_HEIGHT_BAR_PER_ITEM)).interactive()
     st.altair_chart(bar_layer, use_container_width=True)
     png_bytes = chart_to_png_bytes(bar_layer)
     if png_bytes:
@@ -292,7 +288,7 @@ def _render_trend_line(trend_df: pd.DataFrame, show_labels: bool) -> None:
         x=alt.X("出願年:O"), y=alt.Y("出願件数:Q"), text="出願件数:Q",
     )
     line_layer = (line + text) if show_labels else line
-    line_layer = line_layer.properties(height=380, padding={"left": 80, "right": 20, "top": 10, "bottom": 40}).interactive()
+    line_layer = line_layer.properties(height=CHART_HEIGHT_LINE, padding={"left": 80, "right": 20, "top": 10, "bottom": 40}).interactive()
     st.altair_chart(line_layer, use_container_width=True)
     png_bytes = chart_to_png_bytes(line_layer)
     if png_bytes:
@@ -302,29 +298,31 @@ def _render_trend_line(trend_df: pd.DataFrame, show_labels: bool) -> None:
 def _render_ipc_bubble(ipc_df: pd.DataFrame, classification: str, level_name: str, show_labels: bool) -> None:
     st.markdown(f"### {classification} 増減率（バブルチャート）— 粒度: {level_name}")
     bc1, bc2 = st.columns(2)
-    ipc_min = bc1.slider("最低出願件数（IPC）", 1, int(ipc_df["total_count"].max()), 10, key="ipc_bmin")
-    ipc_sel = bc2.multiselect("IPC を選択（空＝全表示）", ipc_df["IPC"].tolist(), key="ipc_sel")
+    ipc_min = bc1.slider(f"最低出願件数（{classification}）", 1, int(ipc_df["total_count"].max()), 10, key="ipc_bmin")
+    ipc_sel = bc2.multiselect(f"{classification} を選択（空＝全表示）", ipc_df["IPC"].tolist(), key="ipc_sel")
     bdf = ipc_df[ipc_df["total_count"] >= ipc_min].copy()
     if ipc_sel:
         bdf = bdf[bdf["IPC"].isin(ipc_sel)]
+    bdf = bdf.rename(columns={"IPC": classification})
     bdf["長期増減率(%)"] = (bdf["pct_change_10"] * 100).round(1)
     bdf["短期増減率(%)"] = (bdf["pct_change_second_5"] * 100).round(1)
+    brush = alt.selection_interval()
     pts = alt.Chart(bdf).mark_circle(opacity=0.6).encode(
         x=alt.X("長期増減率(%):Q", title="長期増減率(%)"),
         y=alt.Y("短期増減率(%):Q", title="短期増減率(%)"),
         size=alt.Size("total_count:Q", title="出願件数", scale=alt.Scale(range=[40, 1500])),
-        color=alt.value("#8bc34a"),
-        tooltip=["IPC", "total_count", "長期増減率(%)", "短期増減率(%)"],
-    )
+        color=alt.condition(brush, alt.value("#8bc34a"), alt.value("lightgray")),
+        tooltip=[classification, "total_count", "長期増減率(%)", "短期増減率(%)"],
+    ).add_params(brush)
     labels = alt.Chart(bdf).mark_text(fontSize=9, dy=-10).encode(
-        x="長期増減率(%):Q", y="短期増減率(%):Q", text="IPC:N",
+        x="長期増減率(%):Q", y="短期増減率(%):Q", text=f"{classification}:N",
     )
     ipc_layer = (pts + labels) if show_labels else pts
-    ipc_layer = ipc_layer.properties(width=750, height=500).interactive()
+    ipc_layer = ipc_layer.properties(width=750, height=CHART_HEIGHT_BUBBLE).interactive()
     st.altair_chart(ipc_layer, use_container_width=True)
     png_bytes = chart_to_png_bytes(ipc_layer)
     if png_bytes:
-        st.download_button("このグラフをPNGで保存", data=png_bytes, file_name="ipc_growth_bubble.png", mime="image/png", key="png_ipc")
+        st.download_button("このグラフをPNGで保存", data=png_bytes, file_name=f"{classification.lower()}_growth_bubble.png", mime="image/png", key="png_ipc")
 
 
 def _render_entry_exit(entry_exit_df: pd.DataFrame, show_labels: bool) -> None:
@@ -336,18 +334,19 @@ def _render_entry_exit(entry_exit_df: pd.DataFrame, show_labels: bool) -> None:
     ee = ee[ee["総出願件数"] >= ee_min]
     if ee_sel:
         ee = ee[ee["出願人名"].isin(ee_sel)]
+    brush_ee = alt.selection_interval()
     pts = alt.Chart(ee).mark_circle(opacity=0.55).encode(
         x=alt.X("最初の出願年:Q", title="最初の出願年", scale=alt.Scale(zero=False)),
         y=alt.Y("直近出願年:Q", title="直近出願年", scale=alt.Scale(zero=False)),
         size=alt.Size("総出願件数:Q", scale=alt.Scale(range=[40, 1500])),
-        color=alt.value("#8bc34a"),
+        color=alt.condition(brush_ee, alt.value("#8bc34a"), alt.value("lightgray")),
         tooltip=["出願人名", "最初の出願年", "直近出願年", "総出願件数"],
-    )
+    ).add_params(brush_ee)
     lbl = alt.Chart(ee).mark_text(fontSize=9, dy=-10).encode(
         x="最初の出願年:Q", y="直近出願年:Q", text="出願人名:N",
     )
     ee_layer = (pts + lbl) if show_labels else pts
-    ee_layer = ee_layer.properties(width=750, height=500).interactive()
+    ee_layer = ee_layer.properties(width=750, height=CHART_HEIGHT_BUBBLE).interactive()
     st.altair_chart(ee_layer, use_container_width=True)
     png_bytes = chart_to_png_bytes(ee_layer)
     if png_bytes:
@@ -362,18 +361,19 @@ def _render_citation_map_a(citation_df: pd.DataFrame, show_labels: bool) -> None
     cm = citation_df[citation_df["出願件数"] >= cm_min].copy()
     if cm_sel:
         cm = cm[cm["出願人名"].isin(cm_sel)]
+    brush_ca = alt.selection_interval()
     pts = alt.Chart(cm).mark_circle(opacity=0.6).encode(
         x=alt.X("出願件数:Q", title="出願件数"),
         y=alt.Y("最大引用回数:Q", title="最大引用回数"),
         size=alt.Size("合計引用回数:Q", scale=alt.Scale(range=[40, 1500])),
-        color=alt.value("#5b86c5"),
+        color=alt.condition(brush_ca, alt.value("#5b86c5"), alt.value("lightgray")),
         tooltip=["出願人名", "出願件数", "最大引用回数", "合計引用回数"],
-    )
+    ).add_params(brush_ca)
     lbl = alt.Chart(cm).mark_text(fontSize=9, dy=-10).encode(
         x="出願件数:Q", y="最大引用回数:Q", text="出願人名:N",
     )
     cm_layer = (pts + lbl) if show_labels else pts
-    cm_layer = cm_layer.properties(width=750, height=500).interactive()
+    cm_layer = cm_layer.properties(width=750, height=CHART_HEIGHT_BUBBLE).interactive()
     st.altair_chart(cm_layer, use_container_width=True)
     png_bytes = chart_to_png_bytes(cm_layer)
     if png_bytes:
@@ -384,18 +384,19 @@ def _render_citation_map_b(citation_df: pd.DataFrame, show_labels: bool) -> None
     st.markdown("### 被引用ポジショニングマップ B（引用された出願割合）")
     cb_min = st.slider("最低出願件数（引用B）", 1, int(citation_df["出願件数"].max()), 30, key="cmb_min")
     cmb = citation_df[citation_df["出願件数"] >= cb_min].copy()
+    brush_cb = alt.selection_interval()
     pts = alt.Chart(cmb).mark_circle(opacity=0.6).encode(
         x=alt.X("出願件数:Q", title="出願件数"),
         y=alt.Y("引用された出願割合（%）:Q", title="引用された出願割合(%)"),
         size=alt.Size("合計引用回数:Q", scale=alt.Scale(range=[40, 1500])),
-        color=alt.value("#5b86c5"),
+        color=alt.condition(brush_cb, alt.value("#5b86c5"), alt.value("lightgray")),
         tooltip=["出願人名", "出願件数", "引用された出願割合（%）", "合計引用回数"],
-    )
+    ).add_params(brush_cb)
     lbl = alt.Chart(cmb).mark_text(fontSize=9, dy=-10).encode(
         x="出願件数:Q", y="引用された出願割合（%）:Q", text="出願人名:N",
     )
     cmb_layer = (pts + lbl) if show_labels else pts
-    cmb_layer = cmb_layer.properties(width=750, height=500).interactive()
+    cmb_layer = cmb_layer.properties(width=750, height=CHART_HEIGHT_BUBBLE).interactive()
     st.altair_chart(cmb_layer, use_container_width=True)
     png_bytes = chart_to_png_bytes(cmb_layer)
     if png_bytes:
@@ -412,18 +413,19 @@ def _render_applicant_growth(app_growth_df: pd.DataFrame, show_labels: bool) -> 
         agd = agd[agd["出願人"].isin(ag_sel)]
     agd["長期増減率(%)"] = (agd["pct_change_10"] * 100).round(1)
     agd["短期増減率(%)"] = (agd["pct_change_second_5"] * 100).round(1)
+    brush_ag = alt.selection_interval()
     pts = alt.Chart(agd).mark_circle(opacity=0.55).encode(
         x=alt.X("長期増減率(%):Q", title="長期増減率(%)"),
         y=alt.Y("短期増減率(%):Q", title="短期増減率(%)"),
         size=alt.Size("total_count:Q", title="出願件数", scale=alt.Scale(range=[40, 1500])),
-        color=alt.value("#8bc34a"),
+        color=alt.condition(brush_ag, alt.value("#8bc34a"), alt.value("lightgray")),
         tooltip=["出願人", "total_count", "長期増減率(%)", "短期増減率(%)"],
-    )
+    ).add_params(brush_ag)
     lbl = alt.Chart(agd).mark_text(fontSize=9, dy=-10).encode(
         x="長期増減率(%):Q", y="短期増減率(%):Q", text="出願人:N",
     )
     ag_layer = (pts + lbl) if show_labels else pts
-    ag_layer = ag_layer.properties(width=750, height=500).interactive()
+    ag_layer = ag_layer.properties(width=750, height=CHART_HEIGHT_BUBBLE).interactive()
     st.altair_chart(ag_layer, use_container_width=True)
     png_bytes = chart_to_png_bytes(ag_layer)
     if png_bytes:
@@ -442,7 +444,7 @@ def _render_applicant_year_trend(cleaned_df: pd.DataFrame) -> None:
         c = alt.Chart(at_df).mark_line(point=True).encode(
             x=alt.X("出願年:O", title="出願年"), y=alt.Y("出願件数:Q", title="出願件数"),
             color=alt.Color("出願人:N"), tooltip=["出願年", "出願人", "出願件数"],
-        ).properties(height=400).interactive()
+        ).properties(height=CHART_HEIGHT_LINE).interactive()
         st.altair_chart(c, use_container_width=True)
 
 
@@ -450,14 +452,14 @@ def _render_ipc_treemap(cleaned_df: pd.DataFrame, classification: str, level_nam
     st.markdown(f"### {classification} 分布（ツリーマップ）— 粒度: {level_name}")
     tm_df = analysis_ipc_treemap(cleaned_df, ipc_col=ipc_col)
     if not tm_df.empty:
-        tm_n = st.slider("表示IPC数", 5, 50, 20, key="tm_n")
-        tm_data = tm_df.head(tm_n)
+        tm_n = st.slider(f"表示{classification}数", 5, 50, 20, key="tm_n")
+        tm_data = tm_df.head(tm_n).rename(columns={"IPC": classification})
         c = alt.Chart(tm_data).mark_bar().encode(
             x=alt.X("出願件数:Q", title="出願件数"),
-            y=alt.Y("IPC:N", sort="-x", title=level_name),
+            y=alt.Y(f"{classification}:N", sort="-x", title=level_name),
             color=alt.Color("出願件数:Q", scale=alt.Scale(scheme="greens"), legend=None),
-            tooltip=["IPC", "出願件数"],
-        ).properties(height=max(300, tm_n * 22)).interactive()
+            tooltip=[classification, "出願件数"],
+        ).properties(height=max(CHART_HEIGHT_BAR_MIN, tm_n * CHART_HEIGHT_BAR_PER_ITEM)).interactive()
         st.altair_chart(c, use_container_width=True)
 
 
@@ -465,14 +467,15 @@ def _render_applicant_ipc_heatmap(cleaned_df: pd.DataFrame, classification: str,
     st.markdown(f"### 出願人 × {classification} ヒートマップ — 粒度: {level_name}")
     hm1, hm2 = st.columns(2)
     hm_a = hm1.slider("上位出願人数", 5, 40, 20, key="hm_a")
-    hm_i = hm2.slider("上位IPC数", 5, 30, 15, key="hm_i")
+    hm_i = hm2.slider(f"上位{classification}数", 5, 30, 15, key="hm_i")
     hm_df = analysis_applicant_ipc_heatmap(cleaned_df, ipc_col=ipc_col, top_applicants=hm_a, top_ipcs=hm_i)
     if not hm_df.empty:
+        hm_df = hm_df.rename(columns={"IPC": classification})
         c = alt.Chart(hm_df).mark_rect().encode(
-            x=alt.X("IPC:N", title="IPC"), y=alt.Y("出願人:N", title="出願人"),
+            x=alt.X(f"{classification}:N", title=classification), y=alt.Y("出願人:N", title="出願人"),
             color=alt.Color("出願件数:Q", scale=alt.Scale(scheme="blues"), title="件数"),
-            tooltip=["出願人", "IPC", "出願件数"],
-        ).properties(height=max(300, hm_a * 22)).interactive()
+            tooltip=["出願人", classification, "出願件数"],
+        ).properties(height=max(CHART_HEIGHT_BAR_MIN, hm_a * CHART_HEIGHT_BAR_PER_ITEM)).interactive()
         st.altair_chart(c, use_container_width=True)
 
 
@@ -484,7 +487,7 @@ def _render_applicant_share(cleaned_df: pd.DataFrame) -> None:
         c = alt.Chart(sh_df).mark_area().encode(
             x=alt.X("出願年:O", title="出願年"), y=alt.Y("出願件数:Q", title="出願件数", stack="zero"),
             color=alt.Color("出願人:N"), tooltip=["出願年", "出願人", "出願件数"],
-        ).properties(height=400).interactive()
+        ).properties(height=CHART_HEIGHT_AREA).interactive()
         st.altair_chart(c, use_container_width=True)
 
 
@@ -498,20 +501,21 @@ def _render_co_applicant(cleaned_df: pd.DataFrame) -> None:
             x=alt.X("出願人A:N", title="出願人A"), y=alt.Y("出願人B:N", title="出願人B"),
             color=alt.Color("共同出願件数:Q", scale=alt.Scale(scheme="oranges"), title="件数"),
             tooltip=["出願人A", "出願人B", "共同出願件数"],
-        ).properties(height=400).interactive()
+        ).properties(height=CHART_HEIGHT_NETWORK).interactive()
         st.altair_chart(c, use_container_width=True)
 
 
 def _render_ipc_year_heatmap(cleaned_df: pd.DataFrame, classification: str, level_name: str, ipc_col: str) -> None:
     st.markdown(f"### {classification} 別 年次推移（ヒートマップ）— 粒度: {level_name}")
-    iy_n = st.slider("上位IPC数", 5, 40, 20, key="iy_n")
+    iy_n = st.slider(f"上位{classification}数", 5, 40, 20, key="iy_n")
     iy_df = analysis_ipc_year_heatmap(cleaned_df, ipc_col=ipc_col, top_n=iy_n)
     if not iy_df.empty:
+        iy_df = iy_df.rename(columns={"IPC": classification})
         c = alt.Chart(iy_df).mark_rect().encode(
-            x=alt.X("出願年:O", title="出願年"), y=alt.Y("IPC:N", title="IPC"),
+            x=alt.X("出願年:O", title="出願年"), y=alt.Y(f"{classification}:N", title=classification),
             color=alt.Color("出願件数:Q", scale=alt.Scale(scheme="viridis"), title="件数"),
-            tooltip=["出願年", "IPC", "出願件数"],
-        ).properties(height=max(300, iy_n * 22)).interactive()
+            tooltip=["出願年", classification, "出願件数"],
+        ).properties(height=max(CHART_HEIGHT_BAR_MIN, iy_n * CHART_HEIGHT_BAR_PER_ITEM)).interactive()
         st.altair_chart(c, use_container_width=True)
 
 
@@ -531,7 +535,7 @@ def _render_fterm_distribution(cleaned_df: pd.DataFrame, fterm_col_name: str, ft
             x=alt.X("出願件数:Q", title="出願件数"),
             y=alt.Y("Fターム:N", sort="-x", title=""),
             tooltip=["Fターム", "出願件数"],
-        ).properties(height=max(300, ft_n * 22)).interactive()
+        ).properties(height=max(CHART_HEIGHT_BAR_MIN, ft_n * CHART_HEIGHT_BAR_PER_ITEM)).interactive()
         st.altair_chart(c, use_container_width=True)
 
 
@@ -551,5 +555,5 @@ def _render_fterm_year_heatmap(cleaned_df: pd.DataFrame, fterm_col_name: str, ft
             x=alt.X("出願年:O", title="出願年"), y=alt.Y("Fターム:N", title="Fターム"),
             color=alt.Color("出願件数:Q", scale=alt.Scale(scheme="purples"), title="件数"),
             tooltip=["出願年", "Fターム", "出願件数"],
-        ).properties(height=max(300, fth_n * 22)).interactive()
+        ).properties(height=max(CHART_HEIGHT_BAR_MIN, fth_n * CHART_HEIGHT_BAR_PER_ITEM)).interactive()
         st.altair_chart(c, use_container_width=True)

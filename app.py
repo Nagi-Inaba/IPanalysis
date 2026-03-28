@@ -60,6 +60,37 @@ code{font-family:'IBM Plex Mono',monospace!important}
 st.markdown("""<section class="hero"><h1>IP Analysis Studio</h1>
 <p>特許Excelをアップロード → 前処理 → 集計 → グラフ の3ステップで分析できます。</p></section>""", unsafe_allow_html=True)
 
+# ==================== Sidebar ====================
+with st.sidebar:
+    st.markdown("### IP Analysis Studio")
+    with st.expander("使い方ガイド", expanded=False):
+        st.markdown("""
+1. **Step 1** — Excel/CSVをアップロードし列マッピングを確認
+2. **Step 2** — 基準年・レンジを設定し集計を実行
+3. **Step 3** — グラフを確認・調整・ダウンロード
+
+**グラフ操作:**
+- マウスホイール: ズーム
+- ドラッグ: パン移動
+- Shift+ドラッグ: 範囲選択
+""")
+    if st.session_state.get("cleaned_df") is not None:
+        _cdf = st.session_state["cleaned_df"]
+        st.markdown("---")
+        st.markdown("### データ概要")
+        st.metric("ファイル", st.session_state.get("upload_name", "—"))
+        _sc1, _sc2 = st.columns(2)
+        _sc1.metric("行数", f"{len(_cdf):,}")
+        _sc2.metric("列数", f"{len(_cdf.columns):,}")
+        if "出願年" in _cdf.columns:
+            _years = _cdf["出願年"].dropna()
+            if len(_years) > 0:
+                _sc3, _sc4 = st.columns(2)
+                _sc3.metric("最古年", int(_years.min()))
+                _sc4.metric("最新年", int(_years.max()))
+        if "筆頭出願人" in _cdf.columns:
+            st.metric("出願人数", f"{_cdf['筆頭出願人'].nunique():,}")
+
 # ==================== Session State ====================
 for k, v in [
     ("step", 1),
@@ -183,34 +214,37 @@ if step >= 1:
                     return d
             return cols[0] if cols else ""
 
-        def _col_select(label: str, key: str, defaults):
+        def _col_select(label: str, key: str, defaults, help_text: str = None):
             current = col_map.get(key)
             if current not in cols:
                 current = _guess(defaults)
                 col_map[key] = current
             idx = cols.index(current) if current in cols else 0
-            sel = st.selectbox(label, cols, index=idx, key=f"map_{key}")
+            sel = st.selectbox(label, cols, index=idx, key=f"map_{key}", help=help_text)
             col_map[key] = sel
             return sel
 
+        st.markdown("##### 必須列")
         c1, c2, c3 = st.columns(3)
         applicant_col = _col_select("出願人列", "applicant", [
             "更新出願人・権利者氏名", "出願人", "出願人名",
             "Current standardized assignees - inventors removed", "Current assignees",
-        ])
+        ], help_text="出願人・権利者名が格納されている列")
         date_col = _col_select("出願日列", "date", [
             "出願日", "公開日", "Earliest application date",
-        ])
+        ], help_text="出願日（YYYY-MM-DD形式）の列")
         num_col = _col_select("出願番号列", "number", [
             "出願番号", "Publication numbers", "Standardized publication numbers",
-        ])
+        ], help_text="出願番号または公報番号の列")
+        st.markdown("##### 分類列")
         ipc_col = c2.selectbox(
-            "IPC列",
+            "特許分類列",
             cols,
             index=cols.index(col_map.get("ipc", _guess([
                 "公報IPC", "IPC", "IPC - International classification",
             ]))) if cols else 0,
             key="map_ipc",
+            help="IPC分類コードが格納されている列（複数コードはカンマ区切り可）",
         )
         col_map["ipc"] = ipc_col
         _fi_default = col_map.get("fi", "（なし）")
@@ -385,12 +419,21 @@ if step >= 2 and st.session_state["cleaned_df"] is not None:
             st.session_state["fterm_level"] = FTERM_LEVEL_OPTIONS[fterm_level_label]
 
         st.markdown("**実行する集計を選択:**")
+        _sel_c1, _sel_c2 = st.columns(2)
+        if _sel_c1.button("全選択", key="sel_all"):
+            for k in ["t1","t2","t3","t4","t5","t6","t7","t8","t9","t10"]:
+                st.session_state[k] = True
+            st.rerun()
+        if _sel_c2.button("全解除", key="sel_none"):
+            for k in ["t1","t2","t3","t4","t5","t6","t7","t8","t9","t10"]:
+                st.session_state[k] = False
+            st.rerun()
         c1, c2 = st.columns(2)
         checks = {
             "出願件数推移": c1.checkbox("出願件数推移", True, key="t1"),
-            "公報IPC増減率": c1.checkbox("公報IPC増減率", True, key="t2"),
-            "公報IPC集計": c1.checkbox("公報IPC集計", False, key="t3"),
-            "筆頭IPCメイングループ": c1.checkbox("筆頭IPCメイングループ", False, key="t4"),
+            "特許分類増減率": c1.checkbox("特許分類増減率", True, key="t2"),
+            "特許分類集計": c1.checkbox("特許分類集計", False, key="t3"),
+            "筆頭分類メイングループ": c1.checkbox("筆頭分類メイングループ", False, key="t4"),
             "筆頭出願人件数": c2.checkbox("筆頭出願人件数", True, key="t5"),
             "総出願人カウント": c2.checkbox("総出願人カウント", True, key="t6"),
             "出願人増減率": c2.checkbox("出願人増減率", True, key="t7"),
@@ -411,12 +454,12 @@ if step >= 2 and st.session_state["cleaned_df"] is not None:
             with st.spinner("集計中..."):
                 if checks["出願件数推移"]:
                     results["出願件数推移"] = cached_application_trend(cleaned_df)
-                if checks["公報IPC増減率"]:
-                    results["公報IPC増減率"] = cached_ipc_growth(cleaned_df, base_year, yr_range, _active_level, _active_ipc_col)
-                if checks["公報IPC集計"]:
-                    results["公報IPC集計"] = cached_ipc_summary(cleaned_df)
-                if checks["筆頭IPCメイングループ"]:
-                    results["筆頭IPCメイングループ"] = cached_ipc_main_group(cleaned_df)
+                if checks["特許分類増減率"]:
+                    results["特許分類増減率"] = cached_ipc_growth(cleaned_df, base_year, yr_range, _active_level, _active_ipc_col)
+                if checks["特許分類集計"]:
+                    results["特許分類集計"] = cached_ipc_summary(cleaned_df)
+                if checks["筆頭分類メイングループ"]:
+                    results["筆頭分類メイングループ"] = cached_ipc_main_group(cleaned_df)
                 if checks["筆頭出願人件数"]:
                     results["筆頭出願人件数"] = cached_applicant_count(cleaned_df, start_year, end_year)
                 if checks["総出願人カウント"]:
@@ -436,6 +479,12 @@ if step >= 2 and st.session_state["cleaned_df"] is not None:
 
         agg = st.session_state.get("agg_results", {})
         if agg:
+            _mc1, _mc2, _mc3 = st.columns(3)
+            _mc1.metric("集計項目数", len(agg))
+            if "筆頭出願人件数" in agg and agg["筆頭出願人件数"] is not None:
+                _mc2.metric("出願人数", len(agg["筆頭出願人件数"]))
+            if "特許分類増減率" in agg and agg["特許分類増減率"] is not None:
+                _mc3.metric("分類数", len(agg["特許分類増減率"]))
             for name, df_r in agg.items():
                 if df_r is not None and not df_r.empty:
                     with st.expander(f"結果: {name}"):
