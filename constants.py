@@ -2,7 +2,7 @@
 """IPC / FI / Fターム粒度の定数定義。"""
 from __future__ import annotations
 
-# IPC粒度
+# 分類粒度
 IPC_LEVEL_OPTIONS = {
     "セクション (例: H)": "section",
     "クラス (例: H01)": "class",

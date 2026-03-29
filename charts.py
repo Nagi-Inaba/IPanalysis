@@ -58,7 +58,7 @@ def render_step3(agg: Dict[str, pd.DataFrame], cleaned_df: pd.DataFrame) -> None
     st.session_state["classification"] = _classification
     if _classification == "IPC":
         _ipc_level_label_s3 = _s3c2.selectbox(
-            "IPC粒度",
+            "分類粒度",
             list(IPC_LEVEL_OPTIONS.keys()),
             index=list(IPC_LEVEL_OPTIONS.values()).index(st.session_state.get("ipc_level", "subclass")),
             key="ipc_level_s3",

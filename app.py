@@ -389,7 +389,7 @@ if step >= 2 and st.session_state["cleaned_df"] is not None:
 
         if classification == "IPC":
             ipc_level_label = ipc_col_sel.selectbox(
-                "IPC粒度",
+                "分類粒度",
                 list(IPC_LEVEL_OPTIONS.keys()),
                 index=list(IPC_LEVEL_OPTIONS.values()).index(st.session_state["ipc_level"]),
                 key="ipc_level_select",
