@@ -24,7 +24,7 @@ https://ipanalysis-webapp.streamlit.app/
 - Python 3.8+
 - Streamlit（Web UI）
 - pandas, openpyxl（データ処理）
-- Altair（可視化）
+- Altair + vl-convert-python（可視化 + PNG エクスポート）
 - pytest（テスト）
 
 ## コマンド
@@ -40,17 +40,21 @@ https://ipanalysis-webapp.streamlit.app/
 
 | パス | 説明 |
 |-----|------|
-| `app.py` | Streamlit Web アプリ（455行 -- Step 1/2 + メインフロー） |
-| `charts.py` | Step 3 グラフ描画（555行 -- 15種のチャート + 設定UI） |
+| `app.py` | Streamlit Web アプリ エントリポイント（70行 -- セッション初期化 + ステップルーティング） |
+| `sidebar.py` | サイドバー UI（使い方ガイド + データ概要）（42行） |
+| `styles.py` | CSS/HTML スタイル定義 + データ形式バッジ（49行） |
+| `data_processing.py` | Step 1 前処理 UI（ファイル読込・列マッピング・名寄せ・クリーニング）（328行） |
+| `aggregation.py` | Step 2 集計 UI（パラメータ設定・集計実行・結果表示）（231行） |
+| `charts.py` | Step 3 グラフ描画（563行 -- 15種のチャート + 設定UI） |
 | `charts_advanced.py` | 高度分析グラフ（共起ネットワーク、技術ライフサイクル、出願戦略マップ等） |
 | `analysis_advanced.py` | 高度分析ロジック（共起分析、技術ライフサイクル、ポートフォリオ分析等） |
 | `cached_agg.py` | Streamlit キャッシュ付き集計ラッパー（70行） |
 | `constants.py` | IPC/FI/Fターム粒度定数（44行） |
 | `example_analysis.py` | 分析ロジック（17種の集計関数 + データクリーニング + 名寄せ辞書） |
 | `patent_analysis.py` | 特許分類増減率計算（CLI/Web 両対応、openpyxl ベース） |
-| `chart_utils.py` | グラフ PNG エクスポート（altair_saver 依存 -- 要更新） |
+| `chart_utils.py` | グラフ PNG エクスポート（vl-convert-python ベース） |
 | `name_mapping.json` | 出願人名寄せ辞書（カスタマイズ可能） |
-| `tests/` | pytest テスト（test_analysis.py, test_cleaning.py, test_advanced_analysis.py） |
+| `tests/` | pytest テスト（test_analysis.py, test_cleaning.py, test_advanced_analysis.py, test_styles.py, test_chart_utils.py） |
 | `tests/e2e/` | Playwright E2E テスト（conftest.py, test_app.py） |
 | `excel_sample/` | サンプル Excel データ |
 | `archive/` | 旧コード・アーカイブ |
@@ -74,11 +78,11 @@ Fターム分布、Fターム年次ヒートマップ
 
 ## テスト
 
-- ユニット: 31テスト（test_analysis.py: 15件、test_cleaning.py: 16件）+ test_advanced_analysis.py
+- ユニット: 49テスト（test_analysis.py: 15件、test_cleaning.py: 16件、test_advanced_analysis.py: 12件、test_styles.py: 6件、test_chart_utils.py: skip条件付き2件）
 - E2E: 3テスト（Playwright -- `pytest tests/e2e -m e2e`）
 - 実行: `pytest`（pyproject.toml で testpaths=tests 設定済み）
 - E2E実行: Python 3.12 + streamlit + playwright が必要。`$HOME/AppData/Local/Programs/Python/Python312/python.exe -m pytest tests/e2e -m e2e`
-- Python 3.14 環境にはpandas未インストール。テストは `C:/pythonapp/python.exe`（3.8）で実行可能
+- Python 3.14 環境では pandas のみ利用可（streamlit/altair 未インストール）。test_styles.py 等の非 Streamlit テストは Python 3.14 で実行可能
 
 ## Gotchas
 
@@ -86,10 +90,10 @@ Fターム分布、Fターム年次ヒートマップ
 - `excel_sample/` に実データを含めないこと（機密・個人情報リスク）
 - `.streamlit/secrets.toml` はリポジトリに含めないこと
 - `.gitignore` で `*.csv` を除外済み（実データの誤コミット防止）
-- app.py を 1069→455 行にリファクタリング済み（charts.py, cached_agg.py, constants.py に分割）
-- chart_utils.py の altair_saver は非推奨 -- vl-convert-python への移行が必要
+- app.py を 1069→455→70 行にリファクタリング済み（sidebar.py, styles.py, data_processing.py, aggregation.py, charts.py, cached_agg.py, constants.py に分割）
+- chart_utils.py を altair_saver から vl-convert-python に移行済み
 - example_analysis.py が 822 行で 800 行上限に近い -- 名寄せ辞書の外部化で軽量化可能
-- UI表示は「特許分類」に統一済みだが、内部カラム名（constants.py IPC_LEVEL_COL / example_analysis.py COL_IPC）は「IPC」のまま。charts.py では `.rename(columns={"IPC": classification})` でUI表示時にリネームしている
+- UI表示は「特許分類」「分類粒度」に統一済みだが、内部カラム名（constants.py IPC_LEVEL_COL / example_analysis.py COL_IPC）は「IPC」のまま。charts.py では `.rename(columns={"IPC": classification})` でUI表示時にリネームしている
 - charts_advanced.py の共起分析は生の複数分類カラム（`公報IPC`等）が必要。`筆頭IPCサブクラス`（単一値）を渡すと共起が発生しない
 - E2E テストはサンプルデータフローを使用。ファイルアップロードは Streamlit の制約上テスト困難
 - charts_advanced.py は cached_agg.py のキャッシュラッパー経由で分析関数を呼び出す。直接 import しない

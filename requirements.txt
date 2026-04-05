@@ -2,5 +2,4 @@ openpyxl>=3.1.0,<4.0.0
 pandas>=2.0.0,<3.0.0
 streamlit>=1.36.0,<2.0.0
 altair>=5.0.0
-# vl-convert-python は PNG エクスポート機能で必要ですが、
-# Streamlit Community Cloud では不要（st.altair_chart はブラウザでレンダリングするため）
+vl-convert-python>=1.3.0,<2.0.0
